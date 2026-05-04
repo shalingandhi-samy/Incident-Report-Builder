@@ -1,371 +1,472 @@
-"""Generate filled RCA PowerPoint from template."""
-import shutil
+"""Generate RCA PowerPoint from scratch — no template file required."""
+from __future__ import annotations
+
+from datetime import datetime
 from pathlib import Path
+from typing import Optional
+
 from pptx import Presentation
-from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
-from models import RCAIncident
+from pptx.util import Inches, Pt
+from pptx.enum.text import PP_ALIGN
 
-# Black color for text
-BLACK = RGBColor(0, 0, 0)
+from models import RCAIncident, PYRAMID_LABELS
+
+# ── Walmart brand colours ─────────────────────────────────────────────────────
+WMT_BLUE  = RGBColor(0x00, 0x53, 0xE2)
+WMT_SPARK = RGBColor(0xFF, 0xC2, 0x20)
+WHITE     = RGBColor(0xFF, 0xFF, 0xFF)
+DARK      = RGBColor(0x1A, 0x1A, 0x1A)
+LGREY     = RGBColor(0xF2, 0xF2, 0xF2)
+MGREY     = RGBColor(0xD9, 0xD9, 0xD9)
+
+# ── Slide canvas (16:9 widescreen) ────────────────────────────────────────────
+SW = Inches(13.33)
+SH = Inches(7.50)
+
+# ── Low-level helpers ─────────────────────────────────────────────────────────
+
+def _blank_slide(prs: Presentation):
+    """Add a completely blank slide."""
+    blank_layout = prs.slide_layouts[6]
+    return prs.slides.add_slide(blank_layout)
 
 
-def format_datetime(dt) -> str:
-    """Format datetime for display."""
+def _rgb_str(rgb: RGBColor) -> str:
+    return f"{rgb[0]:02X}{rgb[1]:02X}{rgb[2]:02X}"
+
+
+def _solid_fill(shape, rgb: RGBColor):
+    """Apply a solid fill colour to any shape."""
+    fill = shape.fill
+    fill.solid()
+    fill.fore_color.rgb = rgb
+
+
+def _add_rect(slide, left, top, width, height, rgb: RGBColor):
+    """Add a filled rectangle (no outline)."""
+    shape = slide.shapes.add_shape(1, left, top, width, height)  # 1 = MSO_SHAPE_TYPE.RECTANGLE
+    _solid_fill(shape, rgb)
+    shape.line.fill.background()
+    return shape
+
+
+def _tf(shape,
+        text: str,
+        bold: bool = False,
+        size: int = 12,
+        color: RGBColor = DARK,
+        align=PP_ALIGN.LEFT,
+        wrap: bool = True):
+    """Set text-frame content with basic formatting."""
+    tf = shape.text_frame
+    tf.word_wrap = wrap
+    p = tf.paragraphs[0]
+    p.alignment = align
+    run = p.add_run()
+    run.text = str(text) if text else ""
+    run.font.bold = bold
+    run.font.size = Pt(size)
+    run.font.color.rgb = color
+    return tf
+
+
+def _textbox(slide, left, top, width, height,
+             text: str = "",
+             bold: bool = False,
+             size: int = 11,
+             color: RGBColor = DARK,
+             align=PP_ALIGN.LEFT,
+             bg: Optional[RGBColor] = None):
+    """Add a textbox with optional background fill."""
+    box = slide.shapes.add_textbox(left, top, width, height)
+    if bg:
+        _solid_fill(box, bg)
+    tf = box.text_frame
+    tf.word_wrap = True
+    p = tf.paragraphs[0]
+    p.alignment = align
+    run = p.add_run()
+    run.text = str(text) if text else ""
+    run.font.bold = bold
+    run.font.size = Pt(size)
+    run.font.color.rgb = color
+    return box
+
+
+def _header(slide, title: str, subtitle: str = ""):
+    """Blue banner across top with title + optional subtitle."""
+    _add_rect(slide, 0, 0, SW, Inches(0.72), WMT_BLUE)
+    _textbox(slide, Inches(0.15), Inches(0.06), Inches(9.5), Inches(0.36),
+             text=title, bold=True, size=18, color=WHITE)
+    if subtitle:
+        _textbox(slide, Inches(0.15), Inches(0.42), Inches(11), Inches(0.28),
+                 text=subtitle, bold=False, size=10, color=WMT_SPARK)
+
+
+def _label(slide, left, top, width, height, text: str):
+    """Small dark-background label pill."""
+    _add_rect(slide, left, top, width, height, MGREY)
+    _textbox(slide, left + Inches(0.04), top, width, height,
+             text=text, bold=True, size=8, color=DARK)
+
+
+def _value(slide, left, top, width, height, text: str, size: int = 10):
+    """Light-background value field."""
+    _add_rect(slide, left, top, width, height, LGREY)
+    _textbox(slide, left + Inches(0.05), top + Inches(0.01), width - Inches(0.1), height,
+             text=text, size=size, color=DARK)
+
+
+def _section_bar(slide, top, text: str):
+    """Full-width dark-blue section divider."""
+    _add_rect(slide, 0, top, SW, Inches(0.26), WMT_BLUE)
+    _textbox(slide, Inches(0.1), top + Inches(0.03), SW - Inches(0.2), Inches(0.22),
+             text=text, bold=True, size=10, color=WHITE)
+
+
+def _kv(slide, left, top, w_label, w_val, height, label: str, value: str):
+    """Inline key → value pair."""
+    _label(slide, left, top, w_label, height, label)
+    _value(slide, left + w_label, top, w_val, height, value)
+
+
+def _fmt_dt(dt) -> str:
     if dt is None:
         return ""
-    if hasattr(dt, 'strftime'):
-        return dt.strftime("%m/%d/%Y %H:%M")
+    if hasattr(dt, "strftime"):
+        return dt.strftime("%m/%d/%Y  %I:%M %p")
     return str(dt)
 
 
-def format_date(d) -> str:
-    """Format date for display."""
-    if d is None:
+def _fmt_date(dt) -> str:
+    if dt is None:
         return ""
-    if hasattr(d, 'strftime'):
-        return d.strftime("%m/%d/%Y")
-    return str(d)
+    if hasattr(dt, "strftime"):
+        return dt.strftime("%m/%d/%Y")
+    return str(dt)
 
 
-def set_cell_text(table, row: int, col: int, text: str, font_size: int = None):
-    """Safely set text in a table cell with black font color.
-    
-    Args:
-        table: The table object
-        row: Row index
-        col: Column index  
-        text: Text to set
-        font_size: Optional font size in points (for fitting text in small boxes)
-    """
-    try:
-        cell = table.cell(row, col)
-        cell.text = str(text) if text else ""
-        # Set font color to black for all paragraphs/runs
-        for paragraph in cell.text_frame.paragraphs:
-            for run in paragraph.runs:
-                run.font.color.rgb = BLACK
-                if font_size:
-                    run.font.size = Pt(font_size)
-    except IndexError:
-        pass  # Cell doesn't exist, skip
+# ── Slide builders ────────────────────────────────────────────────────────────
 
+def _slide_1(prs: Presentation, d: RCAIncident):
+    """Slide 1 — Incident Overview."""
+    s = _blank_slide(prs)
+    _header(s, "RCA — INCIDENT OVERVIEW", d.site_location)
 
-def fill_slide_1(slide, data: RCAIncident):
-    """Fill Slide 1: Incident Overview."""
-    for shape in slide.shapes:
-        if not shape.has_table:
-            continue
-        
-        table = shape.table
-        rows = len(table.rows)
-        cols = len(table.columns)
-        
-        # Table 7 (1x2): Location
-        # Table 6 (1x2): Job Description  
-        # Table 9 (1x2): Incident Type
-        if rows == 1 and cols == 2:
-            first_cell = table.cell(0, 0).text.strip()
-            if "Location" in first_cell and "Incident" not in first_cell:
-                set_cell_text(table, 0, 1, data.site_location)
-            elif "Job Description" in first_cell:
-                set_cell_text(table, 0, 1, data.job_description, font_size=9)
-            elif "Incident Type" in first_cell and rows == 1:
-                set_cell_text(table, 0, 1, data.kind_of_injury)
-        
-        # Table 5 (8x2): Incident Type checkboxes
-        # Row 0 is header, rows 1-7 are checkboxes
-        # Labels are in column 1, X goes in column 0
-        elif rows == 8 and cols == 2:
-            incident_type_map = {
-                "OSHA Recordable": "OSHA Recordable / Telemed",
-                "Lost Time Injury": "Lost Time Injury",
-                "Trailer Pullout": "Trailer Pullout",
-                "Non-Medical or Medical Only": "Med Only / Nurse Triage",
-                "PIT on PIT": "PIT on PIT /PIT on Structure",
-                "PIT on Pedestrian": "PIT on Pedestrian / Near Miss",
-            }
-            for row_idx in range(1, 8):
-                label = table.cell(row_idx, 1).text.strip()
-                # Check if any of our incident types match this row
-                matched = False
-                if data.incident_types:
-                    for itype in data.incident_types:
-                        if itype in label or label in itype or any(k in label for k in incident_type_map if incident_type_map[k] == itype):
-                            matched = True
-                            break
-                set_cell_text(table, row_idx, 0, "X" if matched else "")
-        
-        # Table 8 (4x2): Dates & Personnel
-        elif rows == 4 and cols == 2:
-            first_cell = table.cell(0, 0).text.strip()
-            if "Date/Time" in first_cell:
-                set_cell_text(table, 0, 1, format_datetime(data.incident_datetime))
-                set_cell_text(table, 1, 1, format_datetime(data.reported_datetime))
-                set_cell_text(table, 2, 1, format_datetime(data.medical_datetime) if data.medical_datetime else "N/A")
-                set_cell_text(table, 3, 1, data.associates_manager)
-        
-        # Table 2 (3x2): Work Status Y/N
-        elif rows == 3 and cols == 2:
-            first_cell = table.cell(0, 0).text.strip()
-            if "Normal Duties" in first_cell:
-                set_cell_text(table, 0, 1, data.doing_normal_duties)
-                set_cell_text(table, 1, 1, data.on_normal_shift)
-                set_cell_text(table, 2, 1, data.on_overtime)
-        
-        # Table 3 (2x1): Incident Location
-        elif rows == 2 and cols == 1:
-            first_cell = table.cell(0, 0).text.strip()
-            if "Incident Location" in first_cell:
-                set_cell_text(table, 1, 0, data.incident_location)
+    ROW_H = Inches(0.30)
+    LBL_W = Inches(2.00)
+    VAL_W = Inches(4.10)
+    COL2  = Inches(6.60)
+    LBL2  = Inches(1.80)
+    VAL2  = Inches(4.73)
+    top   = Inches(0.80)
+    gap   = Inches(0.32)
 
-
-def fill_slide_2(slide, data: RCAIncident):
-    """Fill Slide 2: Associate & Incident Details."""
-    for shape in slide.shapes:
-        if not shape.has_table:
-            continue
-        
-        table = shape.table
-        rows = len(table.rows)
-        cols = len(table.columns)
-        
-        # Table 2 (12x2): Associate Work History
-        if rows == 12 and cols == 2:
-            set_cell_text(table, 0, 1, data.hours_in_path)
-            set_cell_text(table, 1, 1, data.hours_this_week)
-            set_cell_text(table, 2, 1, data.glide_path)
-            set_cell_text(table, 3, 1, data.no_training_paperwork)
-            set_cell_text(table, 4, 1, data.labor_share)
-            set_cell_text(table, 5, 1, data.yes_training_paperwork)
-            set_cell_text(table, 6, 1, data.previous_stand_down)
-            set_cell_text(table, 7, 1, data.roster_reviewed)
-            set_cell_text(table, 8, 1, data.countermeasure_updated)
-            set_cell_text(table, 9, 1, data.last_safety_observation)
-            set_cell_text(table, 10, 1, data.observation_findings)
-            set_cell_text(table, 11, 1, data.disciplinary_actions)
-        
-        # Table 8 (4x2): Incident Category checkboxes
-        elif rows == 4 and cols == 2:
-            for row_idx in range(3):
-                label = table.cell(row_idx, 0).text.strip()
-                if data.incident_category and label in data.incident_category:
-                    set_cell_text(table, row_idx, 1, "X")
-                else:
-                    set_cell_text(table, row_idx, 1, "")  # Clear if not selected
-        
-        # Table 3 (6x2): Object Details
-        elif rows == 6 and cols == 2:
-            # Row 0: Specifics of Object
-            set_cell_text(table, 0, 1, data.object_details.specifics)
-            set_cell_text(table, 1, 1, data.object_details.size)
-            set_cell_text(table, 2, 1, data.object_details.shape)
-            set_cell_text(table, 3, 1, data.object_details.weight)
-            set_cell_text(table, 4, 1, data.object_details.distance_reach)
-            set_cell_text(table, 5, 1, data.object_details.item_name)
-
-
-def fill_slide_3(slide, data: RCAIncident):
-    """Fill Slide 3: Incident Description."""
-    for shape in slide.shapes:
-        if not shape.has_table:
-            continue
-        
-        table = shape.table
-        rows = len(table.rows)
-        
-        # Table 2 (4x1): Description fields
-        if rows == 4:
-            set_cell_text(table, 1, 0, data.injury_description)
-            # Use manager's account for RCA PowerPoint (not associate's account from WMW-738)
-            set_cell_text(table, 3, 0, data.manager_incident_account or data.how_incident_occurred)
-
-
-def add_images_to_slide(slide, image_paths: list[Path], max_images: int = 4):
-    """Add images to a slide in a grid layout, maintaining aspect ratio."""
-    if not image_paths:
-        return
-    
-    from PIL import Image
-    
-    # Grid positions for up to 4 images (2x2 grid)
-    # (left, top, max_width, max_height)
-    positions = [
-        (Inches(0.5), Inches(1.2), Inches(5.5), Inches(2.8)),   # Top-left
-        (Inches(6.5), Inches(1.2), Inches(5.5), Inches(2.8)),   # Top-right
-        (Inches(0.5), Inches(4.2), Inches(5.5), Inches(2.8)),   # Bottom-left
-        (Inches(6.5), Inches(4.2), Inches(5.5), Inches(2.8)),   # Bottom-right
+    rows_left = [
+        ("Incident Date/Time",  _fmt_dt(d.incident_datetime)),
+        ("Reported Date/Time",  _fmt_dt(d.reported_datetime)),
+        ("Associate's Manager", d.associates_manager),
+        ("Reporting Manager",   d.reporting_manager),
+        ("Incident Location",   d.incident_location),
+        ("Job Description",     d.job_description),
+        ("Kind of Injury",      d.kind_of_injury),
     ]
-    
-    for i, img_path in enumerate(image_paths[:max_images]):
-        if img_path.exists():
-            left, top, max_width, max_height = positions[i]
-            
-            # Get image dimensions to calculate aspect ratio
-            try:
-                with Image.open(img_path) as img:
-                    img_width, img_height = img.size
-                    aspect_ratio = img_width / img_height
-                    
-                    # Calculate dimensions that fit within max bounds while maintaining aspect ratio
-                    max_w_inches = max_width.inches
-                    max_h_inches = max_height.inches
-                    
-                    # Try fitting to width first
-                    new_width = max_w_inches
-                    new_height = new_width / aspect_ratio
-                    
-                    # If height exceeds max, fit to height instead
-                    if new_height > max_h_inches:
-                        new_height = max_h_inches
-                        new_width = new_height * aspect_ratio
-                    
-                    # Center the image within the max bounds
-                    actual_left = left + Inches((max_w_inches - new_width) / 2)
-                    actual_top = top + Inches((max_h_inches - new_height) / 2)
-                    
-                    slide.shapes.add_picture(
-                        str(img_path), 
-                        actual_left, 
-                        actual_top, 
-                        Inches(new_width), 
-                        Inches(new_height)
-                    )
-            except Exception as e:
-                # Fallback: add with just width constraint
-                slide.shapes.add_picture(str(img_path), left, top, width=max_width)
+    for label, val in rows_left:
+        _kv(s, Inches(0.15), top, LBL_W, VAL_W, ROW_H, label, val)
+        top += gap
+
+    # Normal duties / shift / overtime block
+    top += Inches(0.05)
+    _section_bar(s, top, "Work Status at Time of Incident")
+    top += Inches(0.28)
+    for label, val in [
+        ("Normal Duties?", d.doing_normal_duties),
+        ("Normal Shift?",  d.on_normal_shift),
+        ("On Overtime?",   d.on_overtime),
+    ]:
+        _kv(s, Inches(0.15), top, LBL_W, VAL_W, ROW_H, label, val)
+        top += gap
+
+    # Right column — Incident Types
+    _section_bar(s, Inches(0.80), "Incident Type(s)")
+    t2 = Inches(1.10)
+    for itype in [
+        "Non-Med",
+        "Med Only / Nurse Triage",
+        "OSHA Recordable / Telemed",
+        "Lost Time Injury",
+        "Trailer Pullout",
+        "PIT on PIT /PIT on Structure",
+        "PIT on Pedestrian / Near Miss",
+    ]:
+        checked = "☑" if (d.incident_types and itype in d.incident_types) else "☐"
+        _textbox(s, COL2, t2, LBL2 + VAL2, Inches(0.27),
+                 text=f"  {checked}  {itype}", size=10, color=DARK, bg=LGREY)
+        t2 += Inches(0.29)
 
 
-def fill_slide_6(slide, data: RCAIncident):
-    """Fill Slide 6: Root Cause Analysis (5 Whys with 4Ms matrix)."""
-    five_whys = data.five_whys
-    
-    for shape in slide.shapes:
-        # Fill Problem Statement (TextBox 6)
-        if shape.has_text_frame:
-            if "TextBox 6" in shape.name or (hasattr(shape, 'text') and shape.text == ""):
-                # Look for the problem statement text box
-                if shape.name == "TextBox 6":
-                    for paragraph in shape.text_frame.paragraphs:
-                        paragraph.text = five_whys.problem_statement
-                        for run in paragraph.runs:
-                            run.font.color.rgb = BLACK
-        
-        # Fill 5 Whys Table (Table 7 - 5 rows x 7 cols)
-        if shape.has_table:
-            table = shape.table
-            rows = len(table.rows)
-            cols = len(table.columns)
-            
-            # Check if this is the 5 Whys table (5 rows x 7 cols)
-            if rows == 5 and cols == 7:
-                # Row 1: Material
-                set_cell_text(table, 1, 1, five_whys.material.why1)
-                set_cell_text(table, 1, 2, five_whys.material.why2)
-                set_cell_text(table, 1, 3, five_whys.material.why3)
-                set_cell_text(table, 1, 4, five_whys.material.why4)
-                set_cell_text(table, 1, 5, five_whys.material.why5)
-                set_cell_text(table, 1, 6, five_whys.material.root_cause)
-                
-                # Row 2: Machine
-                set_cell_text(table, 2, 1, five_whys.machine.why1)
-                set_cell_text(table, 2, 2, five_whys.machine.why2)
-                set_cell_text(table, 2, 3, five_whys.machine.why3)
-                set_cell_text(table, 2, 4, five_whys.machine.why4)
-                set_cell_text(table, 2, 5, five_whys.machine.why5)
-                set_cell_text(table, 2, 6, five_whys.machine.root_cause)
-                
-                # Row 3: Method
-                set_cell_text(table, 3, 1, five_whys.method.why1)
-                set_cell_text(table, 3, 2, five_whys.method.why2)
-                set_cell_text(table, 3, 3, five_whys.method.why3)
-                set_cell_text(table, 3, 4, five_whys.method.why4)
-                set_cell_text(table, 3, 5, five_whys.method.why5)
-                set_cell_text(table, 3, 6, five_whys.method.root_cause)
-                
-                # Row 4: huMan
-                set_cell_text(table, 4, 1, five_whys.human.why1)
-                set_cell_text(table, 4, 2, five_whys.human.why2)
-                set_cell_text(table, 4, 3, five_whys.human.why3)
-                set_cell_text(table, 4, 4, five_whys.human.why4)
-                set_cell_text(table, 4, 5, five_whys.human.why5)
-                set_cell_text(table, 4, 6, five_whys.human.root_cause)
+def _slide_2(prs: Presentation, d: RCAIncident):
+    """Slide 2 — Associate & Incident Details."""
+    s = _blank_slide(prs)
+    _header(s, "ASSOCIATE & INCIDENT DETAILS", d.site_location)
+
+    ROW_H = Inches(0.28)
+    LBL_W = Inches(3.20)
+    VAL_W = Inches(2.90)
+    top   = Inches(0.80)
+    gap   = Inches(0.30)
+
+    work_rows = [
+        ("Hours in Same Path",          d.hours_in_path),
+        ("Hours Worked This Week",       d.hours_this_week),
+        ("Glide Path",                   d.glide_path),
+        ("No Training Paperwork",        d.no_training_paperwork),
+        ("Labor Share",                  d.labor_share),
+        ("Yes Training Paperwork",       d.yes_training_paperwork),
+        ("Previous Stand Down",          d.previous_stand_down),
+        ("Roster Reviewed",              d.roster_reviewed),
+        ("Countermeasure Updated",       d.countermeasure_updated),
+        ("Last Safety Observation",      d.last_safety_observation),
+        ("Observation Findings",         d.observation_findings),
+        ("Disciplinary Actions",         d.disciplinary_actions),
+    ]
+    _section_bar(s, top - Inches(0.02), "Associate Work History")
+    top += Inches(0.27)
+    for label, val in work_rows:
+        _kv(s, Inches(0.15), top, LBL_W, VAL_W, ROW_H, label, val)
+        top += gap
+
+    # Right column — Incident Category + Object Details
+    C2    = Inches(6.60)
+    C2_LW = Inches(2.00)
+    C2_VW = Inches(4.50)
+    t2 = Inches(0.80)
+
+    _section_bar(s, t2 - Inches(0.02), "Incident Category")
+    t2 += Inches(0.27)
+    for cat in ["Material Handling", "Struck By/Against", "Slip/Trip/Fall"]:
+        checked = "☑" if (d.incident_category and cat in d.incident_category) else "☐"
+        _textbox(s, C2, t2, C2_LW + C2_VW, Inches(0.26),
+                 text=f"  {checked}  {cat}", size=10, color=DARK, bg=LGREY)
+        t2 += Inches(0.28)
+
+    t2 += Inches(0.10)
+    _section_bar(s, t2, "Object / Equipment Involved")
+    t2 += Inches(0.28)
+    obj = d.object_details
+    for label, val in [
+        ("Specifics",        obj.specifics),
+        ("Item Name",        obj.item_name),
+        ("Size",             obj.size),
+        ("Shape",            obj.shape),
+        ("Weight",           obj.weight),
+        ("Distance / Reach", obj.distance_reach),
+    ]:
+        _kv(s, C2, t2, C2_LW, C2_VW, ROW_H, label, val)
+        t2 += Inches(0.30)
 
 
-def fill_slide_7(slide, data: RCAIncident):
-    """Fill Slide 7: Countermeasures."""
-    for shape in slide.shapes:
-        if not shape.has_table:
+def _slide_3(prs: Presentation, d: RCAIncident):
+    """Slide 3 — Incident Description."""
+    s = _blank_slide(prs)
+    _header(s, "INCIDENT DESCRIPTION", d.site_location)
+
+    _section_bar(s, Inches(0.80), "Injury / Illness Description")
+    _add_rect(s, Inches(0.15), Inches(1.10), SW - Inches(0.30), Inches(2.40), LGREY)
+    _textbox(s, Inches(0.20), Inches(1.13), SW - Inches(0.40), Inches(2.34),
+             text=d.injury_description, size=11, color=DARK)
+
+    _section_bar(s, Inches(3.60), "Manager's Account of Incident")
+    _add_rect(s, Inches(0.15), Inches(3.90), SW - Inches(0.30), Inches(3.40), LGREY)
+    account = d.manager_incident_account or d.how_incident_occurred
+    _textbox(s, Inches(0.20), Inches(3.93), SW - Inches(0.40), Inches(3.34),
+             text=account, size=11, color=DARK)
+
+
+def _slide_photos(prs: Presentation, title: str, image_paths: list[Path]):
+    """Generic photo grid slide (2×2)."""
+    s = _blank_slide(prs)
+    _header(s, title)
+
+    positions = [
+        (Inches(0.20),  Inches(0.80), Inches(6.40), Inches(3.10)),
+        (Inches(6.73),  Inches(0.80), Inches(6.40), Inches(3.10)),
+        (Inches(0.20),  Inches(4.05), Inches(6.40), Inches(3.10)),
+        (Inches(6.73),  Inches(4.05), Inches(6.40), Inches(3.10)),
+    ]
+
+    for i, img_path in enumerate(image_paths[:4]):
+        if not Path(img_path).exists():
             continue
-        
-        table = shape.table
-        rows = len(table.rows)
-        cols = len(table.columns)
-        
-        # Table 15 (5x6): Countermeasures table
-        if rows == 5 and cols == 6:
-            for i, cm in enumerate(data.countermeasures[:4]):
-                row_idx = i + 1  # Skip header row
-                # Only fill row if there's actual content (root cause or countermeasure)
-                has_content = cm.root_cause or cm.countermeasure
-                set_cell_text(table, row_idx, 0, cm.root_cause if has_content else "")
-                set_cell_text(table, row_idx, 1, cm.countermeasure if has_content else "")
-                set_cell_text(table, row_idx, 2, cm.owner if has_content else "")
-                # Only show due date and pyramid level if there's content
-                set_cell_text(table, row_idx, 3, format_date(cm.due_date) if has_content and cm.due_date else "")
-                set_cell_text(table, row_idx, 4, cm.cost if has_content else "")
-                set_cell_text(table, row_idx, 5, str(cm.pyramid_level) if has_content and cm.pyramid_level else "")
+        left, top, max_w, max_h = positions[i]
+        try:
+            from PIL import Image as PILImage
+            with PILImage.open(img_path) as img:
+                iw, ih = img.size
+                ratio = iw / ih
+                w = max_w.inches
+                h = w / ratio
+                if h > max_h.inches:
+                    h = max_h.inches
+                    w = h * ratio
+                cx = left + Inches((max_w.inches - w) / 2)
+                cy = top  + Inches((max_h.inches - h) / 2)
+                s.shapes.add_picture(str(img_path), cx, cy, Inches(w), Inches(h))
+        except Exception:
+            s.shapes.add_picture(str(img_path), left, top, width=max_w)
 
+
+def _slide_6(prs: Presentation, d: RCAIncident):
+    """Slide 6 — 5 Whys Root Cause Analysis."""
+    s = _blank_slide(prs)
+    _header(s, "ROOT CAUSE ANALYSIS — 5 WHYS (4Ms)", d.site_location)
+
+    fw = d.five_whys
+    _section_bar(s, Inches(0.80), "Problem Statement")
+    _add_rect(s, Inches(0.15), Inches(1.10), SW - Inches(0.30), Inches(0.55), LGREY)
+    _textbox(s, Inches(0.20), Inches(1.12), SW - Inches(0.40), Inches(0.51),
+             text=fw.problem_statement, size=11, color=DARK)
+
+    # 5-Whys table
+    tbl_top  = Inches(1.75)
+    tbl_left = Inches(0.15)
+    tbl_w    = SW - Inches(0.30)
+    tbl_h    = SH - tbl_top - Inches(0.20)
+
+    cols = 7
+    rows = 5
+    tbl = s.shapes.add_table(rows, cols, tbl_left, tbl_top, tbl_w, tbl_h).table
+
+    # Header row
+    headers = ["4M Category", "Why 1", "Why 2", "Why 3", "Why 4", "Why 5", "Root Cause"]
+    for ci, hdr in enumerate(headers):
+        cell = tbl.cell(0, ci)
+        cell.text = hdr
+        p = cell.text_frame.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        run = p.runs[0]
+        run.font.bold = True
+        run.font.size = Pt(9)
+        run.font.color.rgb = WHITE
+        cell.fill.solid()
+        cell.fill.fore_color.rgb = WMT_BLUE
+
+    # Data rows: (label, FiveWhysCategory)
+    cat_rows = [
+        ("Material",  fw.material),
+        ("Machine",   fw.machine),
+        ("Method",    fw.method),
+        ("huMan",     fw.human),
+    ]
+    for ri, (cat_name, cat) in enumerate(cat_rows):
+        row_idx = ri + 1
+        vals = [cat_name, cat.why1, cat.why2, cat.why3, cat.why4, cat.why5, cat.root_cause]
+        for ci, val in enumerate(vals):
+            cell = tbl.cell(row_idx, ci)
+            cell.text = val or ""
+            p = cell.text_frame.paragraphs[0]
+            run = p.runs[0] if p.runs else p.add_run()
+            run.font.size = Pt(9)
+            run.font.bold = (ci == 0)
+            run.font.color.rgb = DARK
+            bg = LGREY if ri % 2 == 0 else WHITE
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = bg if ci > 0 else MGREY
+
+
+def _slide_7(prs: Presentation, d: RCAIncident):
+    """Slide 7 — Countermeasures."""
+    s = _blank_slide(prs)
+    _header(s, "COUNTERMEASURES", d.site_location)
+
+    tbl_top  = Inches(0.80)
+    tbl_left = Inches(0.15)
+    tbl_w    = SW - Inches(0.30)
+    tbl_h    = SH - tbl_top - Inches(0.20)
+
+    rows = 5  # header + 4 countermeasures
+    cols = 6
+    tbl = s.shapes.add_table(rows, cols, tbl_left, tbl_top, tbl_w, tbl_h).table
+
+    headers = ["Root Cause", "Countermeasure", "Owner", "Due Date", "Cost", "Pyramid Level"]
+    for ci, hdr in enumerate(headers):
+        cell = tbl.cell(0, ci)
+        cell.text = hdr
+        p = cell.text_frame.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        run = p.runs[0]
+        run.font.bold = True
+        run.font.size = Pt(9)
+        run.font.color.rgb = WHITE
+        cell.fill.solid()
+        cell.fill.fore_color.rgb = WMT_BLUE
+
+    for ri, cm in enumerate(d.countermeasures[:4]):
+        row_idx = ri + 1
+        pyramid_label = PYRAMID_LABELS.get(cm.pyramid_level, str(cm.pyramid_level))
+        vals = [
+            cm.root_cause,
+            cm.countermeasure,
+            cm.owner,
+            _fmt_date(cm.due_date),
+            cm.cost,
+            pyramid_label if (cm.root_cause or cm.countermeasure) else "",
+        ]
+        bg = LGREY if ri % 2 == 0 else WHITE
+        for ci, val in enumerate(vals):
+            cell = tbl.cell(row_idx, ci)
+            cell.text = val or ""
+            p = cell.text_frame.paragraphs[0]
+            run = p.runs[0] if p.runs else p.add_run()
+            run.font.size = Pt(9)
+            run.font.color.rgb = DARK
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = bg
+
+    # Spark-yellow footer note
+    _textbox(s, Inches(0.15), SH - Inches(0.25), SW - Inches(0.30), Inches(0.22),
+             text=f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}  •  Incident Report Builder",
+             size=8, color=WMT_SPARK)
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
 
 def generate_rca_pptx(
     data: RCAIncident,
-    template_path: Path,
     output_path: Path,
-    reenactment_photos: list[Path] = None,
-    cctv_screenshots: list[Path] = None,
+    reenactment_photos: list[Path] | None = None,
+    cctv_screenshots: list[Path] | None = None,
+    template_path: Path | None = None,   # kept for backward-compat; ignored
 ) -> Path:
-    """
-    Generate a filled RCA PowerPoint from template.
-    
+    """Build a full RCA PowerPoint from *data* and save to *output_path*.
+
     Args:
-        data: The form data
-        template_path: Path to RCA.pptx template
-        output_path: Where to save the filled PPTX
-        reenactment_photos: List of paths to reenactment photos
-        cctv_screenshots: List of paths to CCTV screenshots
-    
+        data:               Populated RCAIncident model.
+        output_path:        Destination .pptx file path.
+        reenactment_photos: Optional list of image paths for slide 4.
+        cctv_screenshots:   Optional list of image paths for slide 5.
+        template_path:      Ignored — kept so existing callers don't break.
+
     Returns:
-        Path to the generated PPTX file
+        output_path after saving.
     """
-    # Copy template to output location first
-    shutil.copy(template_path, output_path)
-    
-    # Open and modify
-    prs = Presentation(output_path)
-    slides = list(prs.slides)
-    
-    # Fill each slide
-    if len(slides) >= 1:
-        fill_slide_1(slides[0], data)
-    
-    if len(slides) >= 2:
-        fill_slide_2(slides[1], data)
-    
-    if len(slides) >= 3:
-        fill_slide_3(slides[2], data)
-    
-    if len(slides) >= 4 and reenactment_photos:
-        add_images_to_slide(slides[3], reenactment_photos)
-    
-    if len(slides) >= 5 and cctv_screenshots:
-        add_images_to_slide(slides[4], cctv_screenshots)
-    
-    if len(slides) >= 6:
-        fill_slide_6(slides[5], data)
-    
-    if len(slides) >= 7:
-        fill_slide_7(slides[6], data)
-    
-    # Save
-    prs.save(output_path)
+    prs = Presentation()
+    prs.slide_width  = SW
+    prs.slide_height = SH
+
+    _slide_1(prs, data)
+    _slide_2(prs, data)
+    _slide_3(prs, data)
+
+    if reenactment_photos:
+        _slide_photos(prs, "REENACTMENT PHOTOS", reenactment_photos)
+
+    if cctv_screenshots:
+        _slide_photos(prs, "CCTV SCREENSHOTS", cctv_screenshots)
+
+    _slide_6(prs, data)
+    _slide_7(prs, data)
+
+    prs.save(str(output_path))
     return output_path
