@@ -1,0 +1,28 @@
+# Virtual environment
+.venv/
+
+# Generated outputs (don't commit generated reports)
+rca_app/outputs/
+rca_app/uploads/
+
+# Saved incidents (may contain PII - exclude from git)
+rca_app/incidents/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Template files (org-provided, not for source control)
+Blank RCA Deck.pptx
+WMW-738   new template.xlsx
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+*.swp

@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Incident Report Builder | Safety Incident Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'wm-blue': '#0053e2',
+                        'wm-blue-hover': '#0046c7',
+                        'wm-spark': '#ffc220',
+                        'wm-spark-dark': '#995213',
+                        'wm-green': '#2a8703',
+                        'wm-red': '#ea1100',
+                        'wm-gray': { 50: '#f5f5f5', 100: '#e0e0e0', 160: '#333333' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        input:focus, select:focus, textarea:focus { 
+            outline: none; 
+            border-color: #0053e2; 
+            box-shadow: 0 0 0 3px rgba(0, 83, 226, 0.2); 
+        }
+        .section-card { scroll-margin-top: 100px; }
+        .phase-2-active .phase-1-only-btn { display: none; }
+        .phase-2-active .phase-1-section { display: none; }
+        .phase-2-section { display: none; }
+        .phase-2-active .phase-2-section { display: block; }
+        .stop-box {
+            background: linear-gradient(135deg, #ea1100 0%, #c00d00 100%);
+            animation: pulse-border 2s infinite;
+        }
+        @keyframes pulse-border {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(234, 17, 0, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(234, 17, 0, 0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-wm-blue text-white py-4 shadow-lg sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="bg-wm-spark rounded-full w-10 h-10 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-wm-gray-160" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold">Incident Report Builder</h1>
+                    <p class="text-blue-200 text-xs">Safety Incident Root Cause Analysis</p>
+                </div>
+            </div>
+            
+            <!-- Load Saved Incident -->
+            <div class="flex items-center gap-3">
+                {% if saved_incidents %}
+                <div class="relative">
+                    <select id="loadIncident" onchange="loadSavedIncident(this.value)" 
+                        class="px-3 py-2 pr-8 rounded-lg text-gray-800 text-sm appearance-none bg-white cursor-pointer">
+                        <option value="">📂 Load Saved Incident ({{ saved_incidents|length }})...</option>
+                        {% for incident in saved_incidents %}
+                        <option value="{{ incident.id }}">{{ incident.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button onclick="showManageIncidents()" class="px-3 py-2 bg-white/20 rounded-lg text-sm hover:bg-white/30" title="Manage Incidents">
+                    ⚙️
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 py-6" id="mainContent">
+        
+        <!-- ============================================== -->
+        <!-- PHASE 1: Initial Incident Report (WMW-738)     -->
+        <!-- ============================================== -->
+        <form id="phase1Form" action="/save-phase1" method="POST" class="space-y-6">
+            <input type="hidden" name="incident_id" id="incidentId" value="">
+            
+            <div class="bg-blue-50 border-l-4 border-wm-blue p-4 rounded-r-lg mb-6">
+                <h2 class="text-lg font-bold text-wm-blue flex items-center gap-2">
+                    📋 Phase 1: Initial Incident Report (WMW-738)
+                </h2>
+                <p class="text-sm text-gray-600 mt-1">
+                    Complete this section WITH the associate. This generates the WMW-738 form for signatures.
+                </p>
+            </div>
+
+            <!-- Phase 1 Form Sections (hidden when in Phase 2) -->
+            <div class="phase-1-section space-y-6">
+            
+            <!-- Site & Incident Info -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    Site & Incident Information
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">DC/FC # *</label>
+                        <input type="text" name="site_location" required placeholder="e.g., FC 6020, DC 7012"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">When did incident occur? *</label>
+                        <input type="datetime-local" name="incident_datetime" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date/Time Reported</label>
+                        <input type="datetime-local" name="reported_datetime"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Reported To (Manager Name)</label>
+                        <input type="text" name="reporting_manager" placeholder="Who was incident reported to?"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Associate's Manager</label>
+                        <input type="text" name="associates_manager" placeholder="Associate's direct manager"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Exact Location of Incident</label>
+                        <input type="text" name="incident_location" placeholder="e.g., Mod A, Aisle 12"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Associate Info -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    Associate Information
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                        <input type="text" name="assoc_last_name" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                        <input type="text" name="assoc_first_name" required
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">MI</label>
+                        <input type="text" name="assoc_mi" maxlength="1"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date of Hire</label>
+                        <input type="date" name="assoc_hire_date"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                        <input type="text" name="assoc_department" placeholder="e.g., Outbound, Inbound"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">TPR Code</label>
+                        <input type="text" name="tpr_code"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Schedule (Days/Time)</label>
+                        <input type="text" name="assoc_schedule" placeholder="e.g., Sun-Wed, 6am-4pm"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Doing Normal Duties?</label>
+                        <select name="doing_normal_duties" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">On Normal Shift?</label>
+                        <select name="on_normal_shift" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">On Overtime?</label>
+                        <select name="on_overtime" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">If No, What Were They Doing?</label>
+                        <input type="text" name="if_not_normal_duties"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Incident Classification -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    Incident Classification
+                </h3>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {% for itype in incident_types %}
+                    <label class="flex items-center gap-2 p-2 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" name="incident_types" value="{{ itype }}" class="w-4 h-4 text-wm-blue rounded">
+                        <span class="text-sm">{{ itype }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- Associate's Description -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    🗣️ Associate's Statement
+                </h3>
+                <div class="bg-blue-50 border-l-4 border-wm-blue p-3 mb-4 rounded">
+                    <p class="text-sm text-wm-blue font-medium">⚠️ This is the ASSOCIATE'S account of what happened — written in their own words. This goes on the WMW-738 form only.</p>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            How did the incident occur? (Associate's own words) *
+                        </label>
+                        <textarea name="how_incident_occurred" rows="4" required
+                            placeholder="Write exactly what the associate tells you, in their own words..."
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Describe the injury or illness in detail (body part affected)
+                        </label>
+                        <textarea name="injury_description" rows="3"
+                            placeholder="Describe the injury and indicate the part of the body affected..."
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Objects/Equipment/Substances Involved
+                        </label>
+                        <textarea name="objects_involved" rows="2"
+                            placeholder="What objects, equipment, or substances were involved?"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Power Equipment (if applicable) -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    Power Equipment (if applicable)
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Make</label>
+                        <input type="text" name="equipment_make"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                        <input type="text" name="equipment_model"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Asset ID / Unit #</label>
+                        <input type="text" name="equipment_asset_id"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Witnesses -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    Witnesses
+                </h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Witness Name(s)</label>
+                    <input type="text" name="witness_names" placeholder="Enter witness names, separated by commas"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    <p class="text-xs text-gray-500 mt-1">Witness statements need to be attached to the WMW-738 form</p>
+                </div>
+            </section>
+
+            <!-- Safety Accountability History -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    Safety Accountability Matrix History
+                </h3>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Associate Safety Accountability Matrix history for the past 12 months</label>
+                    <textarea name="safety_accountability" rows="3"
+                        placeholder="List any safety-related accountability actions in the past 12 months..."
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                </div>
+            </section>
+
+            <!-- Behavior/Conditions & Prevention -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    Root Cause & Prevention
+                </h3>
+                <p class="text-sm text-gray-500 mb-4 -mt-2">
+                    💡 Optional — fill in if known, or leave blank and complete by hand after printing.
+                </p>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            What behavior/conditions were present that caused the incident to occur?
+                        </label>
+                        <textarea name="behavior_conditions" rows="3"
+                            placeholder="Describe the behaviors or conditions that contributed to this incident..."
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            What can be done to prevent a reoccurrence?
+                        </label>
+                        <textarea name="prevention" rows="3"
+                            placeholder="Describe actions that can prevent this from happening again..."
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                    </div>
+                </div>
+            </section>
+            </div> <!-- End phase-1-section -->
+
+            <!-- Phase 1 Submit Button -->
+            <div class="flex justify-center phase-1-only-btn">
+                <button type="submit"
+                    class="px-8 py-4 bg-wm-green text-white rounded-xl font-bold text-lg hover:opacity-90 transition-colors flex items-center gap-3 shadow-lg">
+                    <span>📄</span> Save & Generate WMW-738 (Excel)
+                </button>
+            </div>
+        <!-- Form continues below for Phase 2 -->
+
+        <!-- ============================================== -->
+        <!-- 🛑 STOP BOX - Print & Get Signatures          -->
+        <!-- ============================================== -->
+        <div class="stop-box rounded-2xl p-8 my-8 text-white text-center phase-1-only-btn">
+            <div class="text-6xl mb-4">🛑</div>
+            <h2 class="text-3xl font-black mb-3">STOP</h2>
+            <p class="text-xl font-medium mb-6">Get associate signature before continuing</p>
+            <div class="flex justify-center gap-3 flex-wrap">
+                <div class="bg-white/20 rounded-lg px-4 py-2">
+                    <span class="font-bold">1.</span> Print
+                </div>
+                <div class="bg-white/20 rounded-lg px-4 py-2">
+                    <span class="font-bold">2.</span> Associate signs
+                </div>
+                <div class="bg-white/20 rounded-lg px-4 py-2">
+                    <span class="font-bold">3.</span> Manager signs
+                </div>
+                <div class="bg-white/20 rounded-lg px-4 py-2">
+                    <span class="font-bold">4.</span> Turn paperwork in to AP
+                </div>
+                <div class="bg-white/20 rounded-lg px-4 py-2">
+                    <span class="font-bold">5.</span> Return here to complete RCA
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- PHASE 2: RCA Investigation                    -->
+        <!-- ============================================== -->
+        <div id="phase2Form" class="space-y-6 phase-2-section">
+
+            <div class="bg-green-50 border-l-4 border-wm-green p-4 rounded-r-lg mb-6">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <h2 class="text-lg font-bold text-wm-green flex items-center gap-2">
+                            🔍 Phase 2: RCA Investigation
+                        </h2>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Complete the root cause analysis. You can edit any of the information below if needed.
+                        </p>
+                    </div>
+                    <button type="button" onclick="reprintWMW738()" 
+                        class="px-4 py-2 bg-white border border-wm-green text-wm-green rounded-lg text-sm font-medium hover:bg-green-100 flex items-center gap-2 whitespace-nowrap">
+                        🖨️ Reprint WMW-738
+                    </button>
+                </div>
+            </div>
+
+            <!-- Editable Summary of Phase 1 Data -->
+            <section class="section-card bg-blue-50 rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-blue mb-4">📋 Incident Summary (editable)</h3>
+                <div id="phase1Summary" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                    <div class="bg-white p-3 rounded-lg">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Site/FC</label>
+                        <input type="text" id="sum_site_location" oninput="syncToPhase1('site_location', this.value)"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm">
+                    </div>
+                    <div class="bg-white p-3 rounded-lg">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Associate Name</label>
+                        <div class="flex gap-1">
+                            <input type="text" id="sum_assoc_first_name" placeholder="First" oninput="syncToPhase1('assoc_first_name', this.value)"
+                                class="w-1/2 px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm">
+                            <input type="text" id="sum_assoc_last_name" placeholder="Last" oninput="syncToPhase1('assoc_last_name', this.value)"
+                                class="w-1/2 px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm">
+                        </div>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Department</label>
+                        <input type="text" id="sum_assoc_department" oninput="syncToPhase1('assoc_department', this.value)"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm">
+                    </div>
+                    <div class="bg-white p-3 rounded-lg">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Incident Date/Time</label>
+                        <input type="datetime-local" id="sum_incident_datetime" oninput="syncToPhase1('incident_datetime', this.value)"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm">
+                    </div>
+                    <div class="bg-white p-3 rounded-lg">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Location</label>
+                        <input type="text" id="sum_incident_location" oninput="syncToPhase1('incident_location', this.value)"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm">
+                    </div>
+                    <div class="bg-white p-3 rounded-lg">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Reported To</label>
+                        <input type="text" id="sum_reporting_manager" oninput="syncToPhase1('reporting_manager', this.value)"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm">
+                    </div>
+                    <div class="bg-white p-3 rounded-lg">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Associate's Manager</label>
+                        <input type="text" id="sum_associates_manager" oninput="syncToPhase1('associates_manager', this.value)"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm">
+                    </div>
+                    <div class="bg-white p-3 rounded-lg">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Doing Normal Duties?</label>
+                        <select id="sum_doing_normal_duties" oninput="syncToPhase1('doing_normal_duties', this.value)"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm">
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Incident Type</label>
+                        <input type="text" id="sum_incident_types" readonly
+                            class="w-full px-2 py-1 bg-gray-100 border border-gray-300 rounded text-gray-800 text-sm cursor-not-allowed">
+                    </div>
+                    <div class="bg-white p-3 rounded-lg md:col-span-2 lg:col-span-4">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">How Incident Occurred</label>
+                        <textarea id="sum_how_incident_occurred" rows="2" oninput="syncToPhase1('how_incident_occurred', this.value)"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm"></textarea>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg md:col-span-2">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Injury Description</label>
+                        <textarea id="sum_injury_description" rows="2" oninput="syncToPhase1('injury_description', this.value)"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm"></textarea>
+                    </div>
+                    <div class="bg-white p-3 rounded-lg md:col-span-2">
+                        <label class="font-bold text-gray-600 text-xs block mb-1">Objects/Equipment Involved</label>
+                        <textarea id="sum_objects_involved" rows="2" oninput="syncToPhase1('objects_involved', this.value)"
+                            class="w-full px-2 py-1 border border-gray-300 rounded text-gray-800 text-sm"></textarea>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Job Description & Work Info -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    Additional Work Information
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
+                        <select name="job_description" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">Select...</option>
+                            <option value="Warehouse Associate">Warehouse Associate</option>
+                            <option value="Warehouse Lead">Warehouse Lead</option>
+                            <option value="Area Manager">Area Manager</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kind of Injury</label>
+                        <input type="text" name="kind_of_injury" placeholder="e.g., Strain, Laceration, Contusion"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Incident Account Based on Investigation (for RCA PowerPoint) -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    📝 Incident Account (Based on Investigation)
+                </h3>
+                <div class="bg-amber-50 border-l-4 border-wm-spark-dark p-3 mb-4 rounded">
+                    <p class="text-sm text-wm-spark-dark font-medium">🚨 This is NOT the associate's statement. Document the facts based on your investigation — witness statements, CCTV review, and evidence collected. This goes on the RCA PowerPoint (Slide 3).</p>
+                </div>
+                <div>
+                    <textarea name="manager_incident_account" id="manager_incident_account" rows="4"
+                        oninput="debounceAnalyze()"
+                        placeholder="Based on the investigation (witness accounts, CCTV, evidence), describe how this incident occurred..."
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"></textarea>
+                    <p class="text-xs text-gray-500 mt-1">💡 Suggestions update as you type!</p>
+                </div>
+            </section>
+
+            <!-- Object Details (for RCA research) -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    📦 Object Details
+                </h3>
+                <p class="text-sm text-gray-500 mb-3">Research and document specifics about the object/equipment involved.</p>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                        <input type="text" name="object_item_name" placeholder="e.g., Pallet, Box"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Size</label>
+                        <input type="text" name="object_size" placeholder="e.g., 48x40 inches"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Weight</label>
+                        <input type="text" name="object_weight" placeholder="e.g., 45 lbs"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Shape</label>
+                        <input type="text" name="object_shape" placeholder="e.g., Rectangular"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Distance / Reach</label>
+                        <input type="text" name="object_distance" placeholder="e.g., 3 feet"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Specifics of Object</label>
+                        <input type="text" name="object_specifics" placeholder="Additional details..."
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Associate Details for RCA -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    Associate Work History (for RCA)
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Hours in Path</label>
+                        <input type="text" name="hours_in_path" placeholder="e.g., 120"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Hours This Week</label>
+                        <input type="text" name="hours_this_week" placeholder="e.g., 32"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Glide Path?</label>
+                        <select name="glide_path" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">If No, Training/Paperwork?</label>
+                        <input type="text" name="no_training_paperwork" placeholder="Details if no glide path"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Labor Share?</label>
+                        <select name="labor_share" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">If Yes, Training/Paperwork?</label>
+                        <input type="text" name="yes_training_paperwork" placeholder="Details if labor share"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Previous Stand Down?</label>
+                        <select name="previous_stand_down" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">If Yes, Roster Reviewed?</label>
+                        <input type="text" name="roster_reviewed" placeholder="Roster details"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">If No, CM Updated?</label>
+                        <select name="countermeasure_updated" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Last Safety Observation</label>
+                        <input type="date" name="last_safety_observation"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">What Observation Found?</label>
+                        <input type="text" name="observation_findings" placeholder="Findings"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Any Safety in Workday?</label>
+                        <select name="disciplinary_actions" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                            <option value="">Select...</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Incident Category (for RCA) -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    Incident Category
+                </h3>
+                
+                <div class="flex flex-wrap gap-4">
+                    {% for cat in incident_categories %}
+                    <label class="flex items-center gap-2 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                        <input type="checkbox" name="incident_category" value="{{ cat }}" class="w-4 h-4 text-wm-blue rounded">
+                        <span class="text-sm font-medium">{{ cat }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- Reenactment Photos -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    📷 Photos
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Reenactment Photos</label>
+                        <input type="file" name="reenactment_photos" accept="image/*" multiple
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">CCTV Screenshots</label>
+                        <input type="file" name="cctv_screenshots" accept="image/*" multiple
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5 Whys Analysis -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    🔍 Root Cause Analysis (5 Whys — 4M Factors of Variation)
+                </h3>
+
+                <!-- 4M Factors of Variation Explainer -->
+                <div class="mb-5 p-4 bg-blue-50 border border-wm-blue rounded-xl">
+                    <div class="flex items-center justify-between gap-4 flex-wrap mb-2">
+                        <h4 class="text-sm font-bold text-wm-blue">📋 4M Factors of Variation</h4>
+                        <a href="https://one.walmart.com/content/uswire/en_us/supply-chain/department-pages/regional-distribution-centers/ap/safety/dc-191/scoe-09-root-cause-analysis--5-why-.html"
+                            target="_blank" rel="noopener noreferrer"
+                            class="inline-flex items-center gap-2 px-3 py-1.5 bg-wm-blue text-white text-xs font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow whitespace-nowrap"
+                            title="Opens the 5-Why Root Cause Analysis reference on Walmart One">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                            </svg>
+                            New to 5-Whys? Start Here
+                        </a>
+                    </div>
+                    <p class="text-xs text-gray-700 mb-3">When performing a Root Cause Analysis using the 5-Why process, it is beneficial to consider the <strong>4M Factors of Variation</strong>. Ask <em>"Why?"</em> five times for <strong>each factor</strong> to ensure a thorough analysis and identify a full range of causes and needed countermeasures.</p>
+                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div class="bg-white border border-blue-200 rounded-lg p-2">
+                            <p class="text-xs font-bold text-wm-blue">📦 Materials</p>
+                            <p class="text-xs text-gray-600 mt-1">Information, tools, product, or raw materials</p>
+                        </div>
+                        <div class="bg-white border border-blue-200 rounded-lg p-2">
+                            <p class="text-xs font-bold text-wm-blue">⚙️ Machine</p>
+                            <p class="text-xs text-gray-600 mt-1">Powered Industrial Trucks (PIT) and Material Handling Equipment (MHE)</p>
+                        </div>
+                        <div class="bg-white border border-blue-200 rounded-lg p-2">
+                            <p class="text-xs font-bold text-wm-blue">📝 Method</p>
+                            <p class="text-xs text-gray-600 mt-1">Processes, procedures, and schedules</p>
+                        </div>
+                        <div class="bg-white border border-blue-200 rounded-lg p-2">
+                            <p class="text-xs font-bold text-wm-blue">🧑 huMan</p>
+                            <p class="text-xs text-gray-600 mt-1">Individuals, skills, and organizational resources</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AI Recommendations Box (hidden by default) -->
+                <div id="whys-recommendations" class="hidden mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div class="flex items-start gap-2">
+                        <span class="text-2xl">🧠</span>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-wm-blue mb-2">Suggested 4M Focus Areas</h4>
+                            <div class="bg-amber-50 border border-amber-200 rounded p-2 mb-3">
+                                <p class="text-xs text-amber-800">⚠️ <strong>Suggestions Only:</strong> These are keyword-based starting points to help guide your 5-Why process. Always complete your full investigation across <em>all four</em> 4M factors — don't skip any category that may be relevant.</p>
+                            </div>
+                            <p class="text-sm text-gray-600 mb-3">Based on keywords detected in the incident description, consider starting your <strong>5-Why process</strong> with the highlighted 4M factors below:</p>
+                            <div id="leading-questions" class="space-y-2"></div>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('whys-recommendations').classList.add('hidden')" 
+                        class="mt-3 text-xs text-gray-500 hover:text-gray-700">Dismiss</button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Problem Statement</label>
+                    <input type="text" name="problem_statement" placeholder="Describe the problem that occurred..."
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                
+                <!-- 4Ms x 5 Whys Matrix -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm border border-gray-200">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-2 py-2 text-left font-medium text-gray-700 w-28">4M Factor</th>
+                                <th class="px-2 py-2 text-left font-medium text-gray-700">Why-1</th>
+                                <th class="px-2 py-2 text-left font-medium text-gray-700">Why-2</th>
+                                <th class="px-2 py-2 text-left font-medium text-gray-700">Why-3</th>
+                                <th class="px-2 py-2 text-left font-medium text-gray-700">Why-4</th>
+                                <th class="px-2 py-2 text-left font-medium text-gray-700">Why-5</th>
+                                <th class="px-2 py-2 text-left font-medium text-gray-700">Root Cause</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr id="row-material" class="border-t border-gray-200 transition-colors duration-300">
+                                <td class="px-2 py-2 font-medium text-gray-600 bg-gray-50">📦 Material</td>
+                                <td class="px-1 py-1"><input type="text" name="material_why1" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="material_why2" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="material_why3" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="material_why4" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="material_why5" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="material_root_cause" id="material_root_cause" onchange="syncRootCausesToCountermeasures()" class="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-yellow-50"></td>
+                            </tr>
+                            <tr id="row-machine" class="border-t border-gray-200 transition-colors duration-300">
+                                <td class="px-2 py-2 font-medium text-gray-600 bg-gray-50">⚙️ Machine</td>
+                                <td class="px-1 py-1"><input type="text" name="machine_why1" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="machine_why2" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="machine_why3" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="machine_why4" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="machine_why5" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="machine_root_cause" id="machine_root_cause" onchange="syncRootCausesToCountermeasures()" class="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-yellow-50"></td>
+                            </tr>
+                            <tr id="row-method" class="border-t border-gray-200 transition-colors duration-300">
+                                <td class="px-2 py-2 font-medium text-gray-600 bg-gray-50">📝 Method</td>
+                                <td class="px-1 py-1"><input type="text" name="method_why1" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="method_why2" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="method_why3" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="method_why4" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="method_why5" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="method_root_cause" id="method_root_cause" onchange="syncRootCausesToCountermeasures()" class="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-yellow-50"></td>
+                            </tr>
+                            <tr id="row-human" class="border-t border-gray-200 transition-colors duration-300">
+                                <td class="px-2 py-2 font-medium text-gray-600 bg-gray-50">🧑 huMan</td>
+                                <td class="px-1 py-1"><input type="text" name="human_why1" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="human_why2" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="human_why3" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="human_why4" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="human_why5" class="w-full px-2 py-1 border border-gray-300 rounded text-sm"></td>
+                                <td class="px-1 py-1"><input type="text" name="human_root_cause" id="human_root_cause" onchange="syncRootCausesToCountermeasures()" class="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-yellow-50"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Countermeasures -->
+            <section class="section-card bg-white rounded-xl shadow p-6">
+                <h3 class="text-lg font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                    🎯 Countermeasures
+                </h3>
+                
+                <div class="bg-blue-50 border-l-4 border-wm-blue p-3 mb-4 rounded flex items-center justify-between gap-4 flex-wrap">
+                    <p class="text-sm text-blue-800">Select the countermeasure level that best addresses each root cause. Due dates auto-calculate based on level.</p>
+                    <a href="/pyramid" target="_blank" rel="noopener noreferrer"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-wm-blue text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap shadow"
+                        title="Opens the Countermeasure Pyramid in a new tab">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                        </svg>
+                        View Pyramid Reference
+                    </a>
+                </div>
+                
+                <div class="bg-gray-100 p-3 mb-4 rounded text-sm">
+                    <strong>Pyramid Levels:</strong> 
+                    1-Eliminate (120d) | 2-Automate (90d) | 3-Error Proof (25d) | 4-At a Glance (5d) | 5-Verify (5d) | 6-Remind (3d)
+                </div>
+                
+                <div class="bg-gray-50 rounded-lg p-3 space-y-0">
+                    {% for i in [1, 2, 3, 4] %}
+                    <div class="grid grid-cols-1 md:grid-cols-7 gap-2 py-3 items-end
+                        {% if not loop.last %}border-b border-gray-200{% endif %}">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Root Cause</label>
+                            <input type="text" name="cm{{ i }}_root_cause" id="cm{{ i }}_root_cause" placeholder="Auto-fills from 5 Whys"
+                                class="w-full px-2 py-1 border border-gray-300 rounded text-sm bg-yellow-50">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Countermeasure {{ i }}</label>
+                            <input type="text" name="cm{{ i }}_countermeasure" placeholder="Action to take..."
+                                class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Owner</label>
+                            <input type="text" name="cm{{ i }}_owner" placeholder="Name"
+                                class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Pyramid</label>
+                            <select name="cm{{ i }}_pyramid" onchange="autoSetDueDate({{ i }}, this.value)"
+                                class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                <option value="1">1-Eliminate</option>
+                                <option value="2">2-Automate</option>
+                                <option value="3">3-Error Proof</option>
+                                <option value="4">4-At a Glance</option>
+                                <option value="5">5-Verify</option>
+                                <option value="6" selected>6-Remind</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Due Date</label>
+                            <input type="date" name="cm{{ i }}_due_date" id="cm{{ i }}_due_date"
+                                class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">Cost to Implement</label>
+                            <input type="text" name="cm{{ i }}_cost" placeholder="$0"
+                                class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <!-- Generate RCA Button -->
+            <div class="flex items-center justify-between gap-4">
+                <button type="button" onclick="backToPhase1()"
+                    class="inline-flex items-center gap-2 px-4 py-3 bg-wm-spark text-gray-800 text-sm font-bold rounded-xl hover:bg-yellow-300 transition-colors shadow">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                    </svg>
+                    Back to WMW-738
+                </button>
+                <button type="button" onclick="submitRCA()"
+                    class="px-8 py-4 bg-wm-blue text-white rounded-xl font-bold text-lg hover:bg-wm-blue-hover transition-colors flex items-center gap-3 shadow-lg">
+                    <span>🚀</span> Generate RCA PowerPoint
+                </button>
+            </div>
+        </div>
+        </form> <!-- End of main form -->
+    </main>
+
+    <footer class="bg-wm-gray-160 text-white py-4 mt-8">
+        <div class="max-w-5xl mx-auto px-4 text-center text-sm">
+            <p>Incident Report Builder • Built with 🐕 by Code Puppy</p>
+        </div>
+    </footer>
+
+    <script>
+        let currentIncidentId = null;
+        
+        // Pyramid level to days mapping
+        const pyramidDays = { 1: 120, 2: 90, 3: 25, 4: 5, 5: 5, 6: 3 };
+        
+        // Auto-set due date based on pyramid level
+        function autoSetDueDate(cmNumber, pyramidLevel) {
+            const days = pyramidDays[pyramidLevel] || 3;
+            const dueDate = new Date();
+            dueDate.setDate(dueDate.getDate() + days);
+            const dateStr = dueDate.toISOString().split('T')[0];
+            document.getElementById(`cm${cmNumber}_due_date`).value = dateStr;
+        }
+        
+        // Return from Phase 2 back to Phase 1 (WMW-738 view)
+        function backToPhase1() {
+            document.getElementById('mainContent').classList.remove('phase-2-active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Sync root causes from 5 Whys to Countermeasures
+        function syncRootCausesToCountermeasures() {
+            const rootCauses = [
+                document.getElementById('material_root_cause')?.value || '',
+                document.getElementById('machine_root_cause')?.value || '',
+                document.getElementById('method_root_cause')?.value || '',
+                document.getElementById('human_root_cause')?.value || ''
+            ].filter(rc => rc.trim() !== '');
+            
+            // Auto-fill countermeasure root cause fields
+            for (let i = 1; i <= 4; i++) {
+                const cmField = document.getElementById(`cm${i}_root_cause`);
+                if (cmField && rootCauses[i-1]) {
+                    cmField.value = rootCauses[i-1];
+                }
+            }
+        }
+        
+        // Analyze incident description and recommend 5 Whys focus areas
+        // Debounce helper for 5 Whys analysis
+        let analyzeTimeout = null;
+        function debounceAnalyze() {
+            clearTimeout(analyzeTimeout);
+            analyzeTimeout = setTimeout(() => {
+                analyzeIncidentFor5Whys();
+            }, 500); // Wait 500ms after typing stops
+        }
+        
+        function analyzeIncidentFor5Whys() {
+            const text = (document.getElementById('manager_incident_account')?.value || '').toLowerCase();
+            if (text.length < 20) return; // Need enough text to analyze
+            
+            // Keywords for each 4M Factor of Variation category
+            // Per official guidance: Materials (information, tools, product, raw materials),
+            // Machine (PIT, MHE), Method (processes, procedures, schedules),
+            // huMan (individuals, skills, organizational resources)
+            const categories = {
+                material: {
+                    keywords: [
+                        // Products & physical items
+                        'box', 'pallet', 'item', 'product', 'package', 'weight', 'heavy',
+                        'size', 'load', 'freight', 'carton', 'tote', 'container', 'material',
+                        'object', 'substance', 'liquid', 'chemical', 'spill', 'debris',
+                        'obstacle', 'sharp', 'broken', 'damaged', 'defective',
+                        // Raw materials
+                        'raw', 'raw material', 'supply', 'supplies', 'stock', 'inventory',
+                        // Tools
+                        'tool', 'hand tool', 'knife', 'cutter', 'wrench', 'screwdriver',
+                        'blade', 'utility knife', 'box cutter', 'tape gun', 'pry bar',
+                        // Information / documentation as a material
+                        'label', 'tag', 'signage', 'sign', 'marking', 'information',
+                        'placard', 'barcode', 'ticket', 'documentation'
+                    ],
+                    label: '📦 Materials',
+                    questions: [
+                        'Why was the <strong>material</strong> (product, tool, or raw material) a contributing factor — was it too heavy, awkward, defective, or improperly labeled?',
+                        'Why was the <strong>tool</strong> involved — was it the wrong tool, damaged, or missing?',
+                        'Why was the <strong>information</strong> (label, signage, documentation) inadequate, missing, or unclear?',
+                        'Why was the <strong>raw material or product</strong> stored, stacked, or staged improperly?',
+                        'Why was debris, a spill, or an obstacle present — was the area not maintained?'
+                    ]
+                },
+                machine: {
+                    keywords: [
+                        // PIT / MHE (official examples)
+                        'pit', 'forklift', 'reach truck', 'order picker', 'pallet jack',
+                        'walkie', 'rider', 'cherry picker', 'scissor lift', 'man lift',
+                        'mhe', 'material handling', 'powered industrial',
+                        // Other equipment
+                        'equipment', 'machine', 'conveyor', 'vehicle', 'truck',
+                        'belt', 'roller', 'lift', 'dock', 'door', 'mechanical', 'powered',
+                        'battery', 'brake', 'steering', 'horn', 'lights', 'sensor',
+                        'guard', 'safety device', 'alarm', 'interlock', 'lock out',
+                        'lockout', 'tagout', 'loto', 'inspection', 'pre-trip', 'pretrip'
+                    ],
+                    label: '⚙️ Machine',
+                    questions: [
+                        'Why was the <strong>Powered Industrial Truck (PIT)</strong> or <strong>Material Handling Equipment (MHE)</strong> a contributing factor — was it improperly operated, uninspected, or malfunctioning?',
+                        'Why was the <strong>equipment</strong> not properly maintained — was the pre-use inspection completed?',
+                        'Why was the <strong>safety device</strong> (guard, alarm, sensor, interlock) absent, disabled, or bypassed?',
+                        'Why was this <strong>equipment</strong> being used for a task it was not designed for?',
+                        'Why was the operator not properly certified or trained on this <strong>machine</strong>?'
+                    ]
+                },
+                method: {
+                    keywords: [
+                        // Formal process / procedure language
+                        'process', 'procedure', 'sop', 'standard', 'instruction', 'method',
+                        'practice', 'routine', 'technique', 'approach', 'protocol', 'policy',
+                        'guideline', 'work instruction', 'job aid', 'step', 'steps',
+                        // Schedule / pace / workload
+                        'schedule', 'shift', 'rotation', 'overtime', 'deadline', 'quota',
+                        'rate', 'pace', 'pressure', 'production', 'rush', 'rushing', 'hurried',
+                        // Compliance / deviation language
+                        'shortcut', 'skip', 'skipped', 'wrong', 'incorrect', 'improper',
+                        'follow', 'following', 'trained', 'shown', 'supposed', 'should have',
+                        'team lift', 'two person', 'buddy system', 'verify', 'check',
+                        'inspect', 'secure', 'unsecured', 'unstable', 'balance',
+                        // Body mechanics (the method of doing the physical task)
+                        // lift — all tenses
+                        'lift', 'lifts', 'lifting', 'lifted',
+                        // pull — all tenses
+                        'pull', 'pulls', 'pulling', 'pulled',
+                        // push — all tenses
+                        'push', 'pushes', 'pushing', 'pushed',
+                        // other body mechanics
+                        'carry', 'carries', 'carrying', 'carried',
+                        'drag', 'drags', 'dragging', 'dragged',
+                        'bend', 'bends', 'bending', 'bent',
+                        'reach', 'reaches', 'reaching', 'reached',
+                        'twist', 'twists', 'twisting', 'twisted',
+                        'turn', 'turns', 'turning', 'turned',
+                        'grip', 'grips', 'gripping', 'gripped', 'stance',
+                        'stretch', 'stretches', 'stretching', 'stretched',
+                        'extend', 'extends', 'extending', 'extended',
+                        'rotate', 'rotates', 'rotating', 'rotated',
+                        'lean', 'leans', 'leaning', 'leaned',
+                        'stoop', 'stoops', 'stooping', 'stooped',
+                        'crouch', 'crouches', 'crouching', 'crouched',
+                        'kneel', 'kneels', 'kneeling', 'knelt',
+                        'squat', 'squats', 'squatting', 'squatted',
+                        // General work task / activity words — nearly every incident
+                        // involves someone performing a task, which has a method
+                        'task', 'job', 'work', 'working', 'performing', 'doing', 'activity',
+                        'operation', 'duties', 'duty', 'role', 'assignment', 'function',
+                        'attempt', 'attempted', 'trying', 'tried', 'started', 'began',
+                        'while', 'during', 'when', 'upon', 'proceeding', 'proceeded',
+                        // Common warehouse / DC task verbs
+                        'picking', 'placing', 'stacking', 'sorting', 'scanning', 'loading',
+                        'unloading', 'staging', 'replenishing', 'restocking', 'receiving',
+                        'shipping', 'wrapping', 'strapping', 'auditing', 'counting',
+                        'operating', 'handling', 'transporting', 'moving', 'walking',
+                        'traveling', 'stepping', 'climbing', 'descending', 'navigating',
+                        'opened', 'closing', 'removing', 'installing', 'setting', 'positioned',
+                        // Task descriptor adjectives
+                        'normal', 'assigned', 'expected', 'required', 'regular'
+                    ],
+                    label: '📝 Method',
+                    questions: [
+                        'Why was the <strong>process or procedure</strong> a factor — did one exist, was it followed, and is it designed with safety in mind?',
+                        'Why did the <strong>schedule or production pace</strong> contribute — was there pressure to rush or meet a quota?',
+                        'Why was the <strong>SOP</strong> not followed — was it unclear, inaccessible, outdated, or not enforced?',
+                        'Why was the correct <strong>method</strong> (team lift, proper grip, stance) not used during this task?',
+                        'Why has the <strong>process</strong> not been evaluated or updated to eliminate this hazard?'
+                    ]
+                },
+                human: {
+                    keywords: [
+                        // Individuals & skills (official examples)
+                        'tired', 'fatigue', 'distracted', 'forgot', 'failed to', 'unaware',
+                        'attention', 'focus', 'hurry', 'new', 'inexperienced', 'unskilled',
+                        'untrained', 'confused', 'mistake', 'error', 'complacent',
+                        'didn\'t notice', 'wasn\'t paying', 'individual', 'associate', 'worker',
+                        'employee', 'skill', 'experience', 'knowledge', 'awareness',
+                        // Organizational resources (official example)
+                        'staffing', 'understaffed', 'shortage', 'resource', 'resources',
+                        'organization', 'management', 'supervisor', 'oversight', 'support',
+                        'communication', 'language', 'translation',
+                        // PPE / ergonomics
+                        'overexert', 'strain', 'posture', 'ergonomic', 'ppe',
+                        'gloves', 'glasses', 'safety glasses', 'shoes', 'boots', 'vest',
+                        // Disciplinary / behavioral
+                        'shortcut', 'bypass', 'ignored', 'refused', 'disregarded'
+                    ],
+                    label: '🧑 huMan',
+                    questions: [
+                        'Why did the <strong>individual\'s</strong> condition (fatigue, distraction, rushing) contribute — what organizational factors led to this state?',
+                        'Why did the associate\'s <strong>skills or knowledge</strong> fall short — was training provided, verified, and effective?',
+                        'Why were <strong>organizational resources</strong> (staffing levels, supervision, support) insufficient to prevent this incident?',
+                        'Why was proper <strong>PPE</strong> not available, worn, or worn correctly?',
+                        'Why did the associate\'s <strong>experience or awareness</strong> not prevent this — is this a recurring behavior or a system failure?'
+                    ]
+                }
+            };
+            
+            // Analyze text and find matches
+            const recommendations = [];
+            
+            for (const [category, data] of Object.entries(categories)) {
+                const matches = data.keywords.filter(keyword => text.includes(keyword));
+                if (matches.length > 0) {
+                    recommendations.push({
+                        category,
+                        label: data.label,
+                        questions: data.questions,
+                        matchCount: matches.length,
+                        matchedWords: matches.slice(0, 3) // Show up to 3 matched words
+                    });
+                }
+            }
+            
+            // Sort by match count (most relevant first)
+            recommendations.sort((a, b) => b.matchCount - a.matchCount);
+
+            // Reset all row highlights
+            ['material', 'machine', 'method', 'human'].forEach(cat => {
+                const row = document.getElementById(`row-${cat}`);
+                if (row) {
+                    row.classList.remove('bg-yellow-100');
+                    row.querySelector('td').classList.remove('bg-yellow-200', 'font-bold');
+                    row.querySelector('td').classList.add('bg-gray-50');
+                }
+            });
+
+            // If fewer than 2 keyword matches, pad with defaults.
+            // Method is first priority — it applies to nearly every incident
+            // since any task performed at work has a method that can be optimized.
+            const defaultOrder = ['method', 'human', 'material', 'machine'];
+            while (recommendations.length < 2) {
+                for (const cat of defaultOrder) {
+                    if (!recommendations.find(r => r.category === cat)) {
+                        recommendations.push({
+                            category: cat,
+                            label: categories[cat].label,
+                            questions: categories[cat].questions,
+                            matchCount: 0,
+                            matchedWords: []
+                        });
+                        break;
+                    }
+                }
+            }
+
+            // Show top 2 recommendations
+            const topTwo = recommendations.slice(0, 2);
+
+            // Highlight rows and collect questions
+            let allQuestions = [];
+            topTwo.forEach((rec, index) => {
+                const row = document.getElementById(`row-${rec.category}`);
+                if (row) {
+                    row.classList.add('bg-yellow-100');
+                    const firstCell = row.querySelector('td');
+                    firstCell.classList.remove('bg-gray-50');
+                    firstCell.classList.add('bg-yellow-200', 'font-bold');
+                }
+                // 2 questions from top match, 1 from second
+                const questionsToTake = index === 0 ? 2 : 1;
+                rec.questions.slice(0, questionsToTake).forEach(q => {
+                    allQuestions.push({ question: q, label: rec.label });
+                });
+            });
+            
+            // Build questions HTML - trimmed down version
+            questionsHtml = `
+                <div class="p-3 bg-yellow-50 border border-yellow-200 rounded">
+                    <p class="text-xs text-gray-500 mb-2">💡 <em>Based on keywords in your description:</em></p>
+                    <ul class="text-sm text-gray-700 space-y-2">
+                        ${allQuestions.slice(0, 3).map((q, i) => `
+                            <li class="flex items-start gap-2">
+                                <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-wm-spark text-gray-800 font-bold text-xs flex-shrink-0">${i + 1}</span>
+                                <span>${q.label}: ${q.question}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+            
+            // Show recommendations box (no auto-scroll)
+            const recsBox = document.getElementById('whys-recommendations');
+            const questionsDiv = document.getElementById('leading-questions');
+            if (recsBox && questionsDiv) {
+                questionsDiv.innerHTML = questionsHtml;
+                recsBox.classList.remove('hidden');
+            }
+        }
+        
+        // Initialize default due dates on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set default due dates for pyramid level 6 (3 days)
+            for (let i = 1; i <= 4; i++) {
+                autoSetDueDate(i, 6);
+            }
+            
+            // Check URL for incident to auto-load
+            const urlParams = new URLSearchParams(window.location.search);
+            const incidentId = urlParams.get('incident');
+            if (incidentId) {
+                loadSavedIncident(incidentId);
+            }
+        });
+        
+        // Show manage incidents modal
+        function showManageIncidents() {
+            fetch('/incidents')
+                .then(r => r.json())
+                .then(incidents => {
+                    let html = '<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" id="manageModal" onclick="if(event.target===this)this.remove()">';
+                    html += '<div class="bg-white rounded-xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto">';
+                    html += '<h2 class="text-xl font-bold mb-4">Manage Saved Incidents</h2>';
+                    
+                    if (incidents.length === 0) {
+                        html += '<p class="text-gray-500">No saved incidents.</p>';
+                    } else {
+                        html += '<div class="space-y-2">';
+                        incidents.forEach(inc => {
+                            html += `<div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm flex-1">${inc.label}</span>
+                                <button onclick="deleteIncident('${inc.id}')" class="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200">🗑️ Delete</button>
+                            </div>`;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    html += '<div class="mt-4 flex justify-end"><button onclick="document.getElementById(\'manageModal\').remove()" class="px-4 py-2 bg-gray-200 rounded-lg">Close</button></div>';
+                    html += '</div></div>';
+                    
+                    document.body.insertAdjacentHTML('beforeend', html);
+                });
+        }
+        
+        // Delete incident
+        function deleteIncident(incidentId) {
+            if (!confirm('Delete this incident? This cannot be undone.')) return;
+            
+            fetch(`/incident/${incidentId}`, { method: 'DELETE' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Incident deleted!');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                });
+        }
+        
+        // Load saved incident data and populate summary fields
+        function loadSavedIncident(incidentId) {
+            if (!incidentId) return;
+            
+            fetch(`/incident/${incidentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        alert('Error loading incident: ' + data.error);
+                        return;
+                    }
+                    
+                    currentIncidentId = incidentId;
+                    document.getElementById('incidentId').value = incidentId;
+                    
+                    // Switch to Phase 2 mode (shows RCA section, hides Phase 1 sections)
+                    document.getElementById('mainContent').classList.add('phase-2-active');
+                    
+                    // Populate BOTH the summary fields (visible) AND original Phase 1 fields (hidden but submitted)
+                    // Summary fields (visible in Phase 2)
+                    setSummaryValue('sum_site_location', data.site_location);
+                    setSummaryValue('sum_assoc_first_name', data.assoc_first_name);
+                    setSummaryValue('sum_assoc_last_name', data.assoc_last_name);
+                    setSummaryValue('sum_assoc_department', data.assoc_department);
+                    setSummaryValue('sum_incident_datetime', data.incident_datetime);
+                    setSummaryValue('sum_incident_location', data.incident_location);
+                    setSummaryValue('sum_reporting_manager', data.reporting_manager);
+                    setSummaryValue('sum_associates_manager', data.associates_manager);
+                    setSummaryValue('sum_doing_normal_duties', data.doing_normal_duties);
+                    setSummaryValue('sum_how_incident_occurred', data.how_incident_occurred);
+                    setSummaryValue('sum_injury_description', data.injury_description);
+                    setSummaryValue('sum_objects_involved', data.objects_involved);
+                    
+                    // Original Phase 1 fields (hidden but will be submitted)
+                    setFieldValue('site_location', data.site_location);
+                    setFieldValue('incident_datetime', data.incident_datetime);
+                    setFieldValue('reported_datetime', data.reported_datetime);
+                    setFieldValue('reporting_manager', data.reporting_manager);
+                    setFieldValue('associates_manager', data.associates_manager);
+                    setFieldValue('incident_location', data.incident_location);
+                    setFieldValue('assoc_last_name', data.assoc_last_name);
+                    setFieldValue('assoc_first_name', data.assoc_first_name);
+                    setFieldValue('assoc_mi', data.assoc_mi);
+                    setFieldValue('assoc_hire_date', data.assoc_hire_date);
+                    setFieldValue('assoc_department', data.assoc_department);
+                    setFieldValue('tpr_code', data.tpr_code);
+                    setFieldValue('assoc_schedule', data.assoc_schedule);
+                    setFieldValue('doing_normal_duties', data.doing_normal_duties);
+                    setFieldValue('on_normal_shift', data.on_normal_shift);
+                    setFieldValue('on_overtime', data.on_overtime);
+                    setFieldValue('if_not_normal_duties', data.if_not_normal_duties);
+                    setFieldValue('how_incident_occurred', data.how_incident_occurred);
+                    setFieldValue('injury_description', data.injury_description);
+                    setFieldValue('objects_involved', data.objects_involved);
+                    setFieldValue('equipment_make', data.equipment_make);
+                    setFieldValue('equipment_model', data.equipment_model);
+                    setFieldValue('equipment_asset_id', data.equipment_asset_id);
+                    setFieldValue('witness_names', data.witness_names);
+                    setFieldValue('safety_accountability', data.safety_accountability);
+                    setFieldValue('behavior_conditions', data.behavior_conditions);
+                    setFieldValue('prevention', data.prevention);
+                    
+                    // Display incident types (read-only summary)
+                    const types = data.incident_types || [];
+                    document.getElementById('sum_incident_types').value = types.join(', ') || 'None selected';
+                    
+                    // Set checkboxes for incident types (will be submitted)
+                    if (types.length > 0) {
+                        document.querySelectorAll('input[name="incident_types"]').forEach(cb => {
+                            cb.checked = types.includes(cb.value);
+                        });
+                    }
+                    
+                    // ========== PHASE 2 FIELDS ==========
+                    // Manager's account
+                    setPhase2Field('manager_incident_account', data.manager_incident_account);
+                    
+                    // Object details
+                    setPhase2Field('object_item_name', data.object_item_name);
+                    setPhase2Field('object_size', data.object_size);
+                    setPhase2Field('object_weight', data.object_weight);
+                    setPhase2Field('object_shape', data.object_shape);
+                    setPhase2Field('object_distance', data.object_distance);
+                    setPhase2Field('object_specifics', data.object_specifics);
+                    
+                    // Work history
+                    setPhase2Field('job_description', data.job_description);
+                    setPhase2Field('kind_of_injury', data.kind_of_injury);
+                    setPhase2Field('hours_in_path', data.hours_in_path);
+                    setPhase2Field('hours_this_week', data.hours_this_week);
+                    setPhase2Field('glide_path', data.glide_path);
+                    setPhase2Field('no_training_paperwork', data.no_training_paperwork);
+                    setPhase2Field('labor_share', data.labor_share);
+                    setPhase2Field('yes_training_paperwork', data.yes_training_paperwork);
+                    setPhase2Field('previous_stand_down', data.previous_stand_down);
+                    setPhase2Field('roster_reviewed', data.roster_reviewed);
+                    setPhase2Field('countermeasure_updated', data.countermeasure_updated);
+                    setPhase2Field('last_safety_observation', data.last_safety_observation);
+                    setPhase2Field('observation_findings', data.observation_findings);
+                    setPhase2Field('disciplinary_actions', data.disciplinary_actions);
+                    
+                    // Incident category checkboxes
+                    const categories = data.incident_category || [];
+                    document.querySelectorAll('input[name="incident_category"]').forEach(cb => {
+                        cb.checked = categories.includes(cb.value);
+                    });
+                    
+                    // 5 Whys
+                    setPhase2Field('problem_statement', data.problem_statement);
+                    ['material', 'machine', 'method', 'human'].forEach(cat => {
+                        for (let i = 1; i <= 5; i++) {
+                            setPhase2Field(`${cat}_why${i}`, data[`${cat}_why${i}`]);
+                        }
+                        setPhase2Field(`${cat}_root_cause`, data[`${cat}_root_cause`]);
+                    });
+                    
+                    // Countermeasures
+                    for (let i = 1; i <= 4; i++) {
+                        setPhase2Field(`cm${i}_root_cause`, data[`cm${i}_root_cause`]);
+                        setPhase2Field(`cm${i}_countermeasure`, data[`cm${i}_countermeasure`]);
+                        setPhase2Field(`cm${i}_owner`, data[`cm${i}_owner`]);
+                        setPhase2Field(`cm${i}_due_date`, data[`cm${i}_due_date`]);
+                        setPhase2Field(`cm${i}_cost`, data[`cm${i}_cost`]);
+                        // Pyramid level (select)
+                        const pyrField = document.getElementById(`cm${i}_pyramid`);
+                        if (pyrField && data[`cm${i}_pyramid`]) {
+                            pyrField.value = data[`cm${i}_pyramid`];
+                        }
+                    }
+                    
+                    // Scroll to Phase 2 section
+                    document.getElementById('phase2Form').scrollIntoView({ behavior: 'smooth' });
+                })
+                .catch(err => {
+                    alert('Error loading incident: ' + err);
+                });
+        }
+        
+        // Helper to set summary field value by ID
+        function setSummaryValue(id, value) {
+            const field = document.getElementById(id);
+            if (field && value) {
+                field.value = value;
+            }
+        }
+        
+        // Reprint WMW-738 form for current incident
+        function reprintWMW738() {
+            if (!currentIncidentId) {
+                alert('No incident loaded. Please load a saved incident first.');
+                return;
+            }
+            console.log('Reprinting for incident:', currentIncidentId);
+            // Trigger download
+            window.open(`/reprint-738/${currentIncidentId}`, '_blank');
+        }
+        
+        // Helper to set form field value by name (for hidden Phase 1 fields)
+        function setFieldValue(name, value) {
+            const field = document.querySelector(`.phase-1-section [name="${name}"]`);
+            if (field && value) {
+                field.value = value;
+            }
+        }
+        
+        // Helper to set Phase 2 field value by name or id
+        function setPhase2Field(name, value) {
+            if (!value) return;
+            // Try by id first, then by name
+            let field = document.getElementById(name) || document.querySelector(`[name="${name}"]`);
+            if (field) {
+                field.value = value;
+            }
+        }
+        
+        // Sync summary field edits to hidden Phase 1 fields
+        function syncToPhase1(fieldName, value) {
+            const field = document.querySelector(`.phase-1-section [name="${fieldName}"]`);
+            if (field) {
+                field.value = value;
+            }
+        }
+        
+        // Submit combined form for RCA generation
+        function submitRCA() {
+            // Change form action and submit
+            const form = document.getElementById('phase1Form');
+            form.action = '/generate-rca';
+            form.enctype = 'multipart/form-data';
+            form.submit();
+        }
+    </script>
+</body>
+</html>

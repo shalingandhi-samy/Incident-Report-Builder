@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Countermeasure Pyramid | RCA Reference</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'wm-blue': '#0053e2',
+                        'wm-spark': '#ffc220',
+                        'wm-green': '#2a8703',
+                        'wm-gray-160': '#333333'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-wm-blue text-white py-4 shadow-lg">
+        <div class="max-w-4xl mx-auto px-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-wm-spark rounded-full w-9 h-9 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-gray-800" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold">Countermeasure Pyramid</h1>
+                    <p class="text-blue-200 text-xs">RCA Reference Guide — Safety Hierarchy of Controls</p>
+                </div>
+            </div>
+            <button onclick="window.close()" 
+                class="px-3 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm transition-colors">
+                ✕ Close
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-4xl mx-auto px-4 py-8 w-full">
+
+        <!-- Info Banner -->
+        <div class="mb-6 p-4 bg-wm-spark/20 border border-wm-spark rounded-xl">
+            <p class="text-sm text-gray-800">
+                <strong>🎯 Goal: Aim for Level 4 or higher!</strong>
+                The pyramid shows the hierarchy of countermeasure effectiveness.
+                Higher levels (toward the top) create more sustainable, long-term solutions.
+                Lower levels are easier to implement but less effective long-term.
+            </p>
+        </div>
+
+        <!-- Pyramid Image -->
+        <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col items-center">
+            <img 
+                src="/static/countermeasure_pyramid.png" 
+                alt="Countermeasure Pyramid — Hierarchy of Controls showing 6 levels from Remind (Level 6) at the base to Eliminate (Level 1) at the top"
+                class="max-w-full h-auto rounded-lg"
+                style="max-height: 80vh;"
+            />
+        </div>
+
+        <!-- Level Reference Table -->
+        <div class="mt-6 bg-white rounded-xl shadow p-5">
+            <h2 class="text-base font-bold text-wm-gray-160 mb-4 pb-2 border-b-2 border-wm-spark">
+                📋 Quick Reference — Pyramid Levels &amp; Due Dates
+            </h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-3 py-2 text-left font-medium text-gray-700">Level</th>
+                            <th class="px-3 py-2 text-left font-medium text-gray-700">Name</th>
+                            <th class="px-3 py-2 text-left font-medium text-gray-700">Description</th>
+                            <th class="px-3 py-2 text-left font-medium text-gray-700">Due Date</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr class="bg-green-50">
+                            <td class="px-3 py-2 font-bold text-wm-green">Level 1</td>
+                            <td class="px-3 py-2 font-semibold">Eliminate</td>
+                            <td class="px-3 py-2 text-gray-600">Remove the hazard entirely from the workplace</td>
+                            <td class="px-3 py-2 text-gray-600">120 days</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-bold text-blue-700">Level 2</td>
+                            <td class="px-3 py-2 font-semibold">Automate</td>
+                            <td class="px-3 py-2 text-gray-600">Replace manual process with automation</td>
+                            <td class="px-3 py-2 text-gray-600">90 days</td>
+                        </tr>
+                        <tr class="bg-blue-50">
+                            <td class="px-3 py-2 font-bold text-blue-600">Level 3</td>
+                            <td class="px-3 py-2 font-semibold">Error Proof</td>
+                            <td class="px-3 py-2 text-gray-600">Design the process so mistakes are impossible</td>
+                            <td class="px-3 py-2 text-gray-600">25 days</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-bold text-yellow-700">Level 4</td>
+                            <td class="px-3 py-2 font-semibold">At a Glance</td>
+                            <td class="px-3 py-2 text-gray-600">Visual controls — make the correct way obvious</td>
+                            <td class="px-3 py-2 text-gray-600">5 days</td>
+                        </tr>
+                        <tr class="bg-yellow-50">
+                            <td class="px-3 py-2 font-bold text-yellow-600">Level 5</td>
+                            <td class="px-3 py-2 font-semibold">Verify</td>
+                            <td class="px-3 py-2 text-gray-600">Checklists or audits to confirm compliance</td>
+                            <td class="px-3 py-2 text-gray-600">5 days</td>
+                        </tr>
+                        <tr>
+                            <td class="px-3 py-2 font-bold text-red-700">Level 6</td>
+                            <td class="px-3 py-2 font-semibold">Remind</td>
+                            <td class="px-3 py-2 text-gray-600">Signs, notices, or verbal reminders — least effective</td>
+                            <td class="px-3 py-2 text-gray-600">3 days</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-wm-blue text-blue-200 text-center text-xs py-3 mt-4">
+        RCA Incident Report Builder &mdash; Countermeasure Pyramid Reference
+    </footer>
+
+</body>
+</html>
