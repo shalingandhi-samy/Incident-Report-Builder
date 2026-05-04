@@ -22,8 +22,22 @@ if not exist "WMW-738   new template.xlsx" (
     echo.
 )
 
-echo Starting server at http://127.0.0.1:8000
-echo Press Ctrl+C to stop.
+:: Get local IP for team sharing
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4"') do (
+    set LOCAL_IP=%%a
+    goto :found_ip
+)
+:found_ip
+set LOCAL_IP=%LOCAL_IP: =%
+
+echo -----------------------------------------------
+echo   YOUR LINK:   http://localhost:8000
+echo   TEAM LINK:   http://%LOCAL_IP%:8000
+echo -----------------------------------------------
+echo   Share the TEAM LINK with anyone on the same
+echo   network / Walmart VPN!
+echo.
+echo Press Ctrl+C to stop the server.
 echo.
 
 cd rca_app
