@@ -349,9 +349,39 @@ async def save_phase1(
     incident_file.write_text(json.dumps(phase1_data, indent=2))
     
     # Generate WMW-738 Excel - pass the dict directly
+    xlsx_template = BASE_DIR.parent / "WMW-738   new template.xlsx"
+    if not xlsx_template.exists():
+        return HTMLResponse(
+            content=f"""
+            <html><body style="font-family:sans-serif;max-width:600px;margin:60px auto;padding:20px">
+            <h2 style="color:#ea1100">⚠️ Missing Template File</h2>
+            <p>The WMW-738 Excel template is not in the expected location:</p>
+            <code style="background:#f5f5f5;padding:8px;display:block;border-radius:4px">
+            {xlsx_template}
+            </code>
+            <p>Please place <strong>WMW-738&nbsp;&nbsp;&nbsp;new template.xlsx</strong>
+            (note: 3 spaces before "new") in the workspace root folder, then try again.</p>
+            <p><a href="/" style="color:#0053e2">← Back to form</a></p>
+            </body></html>
+            """,
+            status_code=400,
+        )
     xlsx_filename = f"WMW-738_{site_location.replace(' ', '_')}_{incident_id}.xlsx"
     xlsx_path = OUTPUTS_DIR / xlsx_filename
-    xlsx_bytes = generate_wmw738(phase1_data)
+    try:
+        xlsx_bytes = generate_wmw738(phase1_data)
+    except Exception as exc:
+        return HTMLResponse(
+            content=f"""
+            <html><body style="font-family:sans-serif;max-width:600px;margin:60px auto;padding:20px">
+            <h2 style="color:#ea1100">⚠️ Excel Generation Error</h2>
+            <p>Something went wrong while filling the WMW-738 template:</p>
+            <code style="background:#f5f5f5;padding:8px;display:block;border-radius:4px">{exc}</code>
+            <p><a href="/" style="color:#0053e2">← Back to form</a></p>
+            </body></html>
+            """,
+            status_code=500,
+        )
     with open(xlsx_path, "wb") as f:
         f.write(xlsx_bytes)
     
@@ -581,18 +611,48 @@ async def generate_rca(
                 cctv_paths.append(path)
     
     # Generate PowerPoint
+    if not TEMPLATE_PATH.exists():
+        return HTMLResponse(
+            content=f"""
+            <html><body style="font-family:sans-serif;max-width:600px;margin:60px auto;padding:20px">
+            <h2 style="color:#ea1100">⚠️ Missing Template File</h2>
+            <p>The RCA PowerPoint template is not in the expected location:</p>
+            <code style="background:#f5f5f5;padding:8px;display:block;border-radius:4px">
+            {TEMPLATE_PATH}
+            </code>
+            <p>Please place <strong>Blank RCA Deck.pptx</strong>
+            in the workspace root folder, then try again.</p>
+            <p><a href="/" style="color:#0053e2">← Back to form</a></p>
+            </body></html>
+            """,
+            status_code=400,
+        )
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     site_clean = site_location.replace(" ", "_") if site_location else "Unknown"
     output_filename = f"RCA_{site_clean}_{timestamp}.pptx"
     output_path = OUTPUTS_DIR / output_filename
     
-    generate_rca_pptx(
+    try:
+        generate_rca_pptx(
         data=data,
         template_path=TEMPLATE_PATH,
         output_path=output_path,
         reenactment_photos=reenactment_paths,
         cctv_screenshots=cctv_paths,
-    )
+      )
+    except Exception as exc:
+        shutil.rmtree(upload_dir, ignore_errors=True)
+        return HTMLResponse(
+            content=f"""
+            <html><body style="font-family:sans-serif;max-width:600px;margin:60px auto;padding:20px">
+            <h2 style="color:#ea1100">⚠️ PowerPoint Generation Error</h2>
+            <p>Something went wrong while filling the RCA template:</p>
+            <code style="background:#f5f5f5;padding:8px;display:block;border-radius:4px">{exc}</code>
+            <p><a href="/" style="color:#0053e2">← Back to form</a></p>
+            </body></html>
+            """,
+            status_code=500,
+        )
     
     # Cleanup uploads
     shutil.rmtree(upload_dir, ignore_errors=True)
