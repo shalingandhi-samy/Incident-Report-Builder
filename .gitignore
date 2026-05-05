@@ -22,7 +22,57 @@ WMW-738   new template.xlsx
 .DS_Store
 Thumbs.db
 desktop.ini
+~$*
 
 # Editor
 .vscode/
 *.swp
+
+# Auth & credential logs — never commit
+gh_auth.log
+
+# Server / runtime logs
+*.log
+out.txt
+ob-tracker-server.log
+
+# PII data — associate names, WIN numbers
+bigquery_results/
+
+# Large binary archives — not source code
+*.zip
+
+# Large bundled/minified assets
+endgame_main.js
+
+# Separate projects with their own git repos — not part of this repo
+HR-Compliance/
+Samy/
+cut-times-checklist/
+endgame-integration/
+ob-hourly-tracker-phl5/
+outbound-tracker/
+phl5-dashboard/
+phl5-safety-tracker/
+knapp-cps-report/
+dire_wolf_env/
+
+# Unrelated workspace scripts & outputs
+bullwhip.py
+bullwhip_explain.py
+dire_wolf_opt.py
+parse_endgame.py
+probe_api.py
+scan_schema.py
+scan_schema2.py
+endgame_api_map.txt
+endgame_page.html
+heatmap.html
+phl5_dashboard.html
+phl5_showcase.html
+dashboard_screenshot.png
+wmt-edw-sandbox.csv
+bigquery_results/
+launcher.html
+ob-tracker-server.log
+out.txt
