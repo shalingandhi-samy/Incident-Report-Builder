@@ -2,6 +2,7 @@
 import json
 import uuid
 import shutil
+import httpx
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -19,6 +20,13 @@ from pptx_generator import generate_rca_pptx
 from xlsx_generator import generate_wmw738
 
 app = FastAPI(title="RCA Form Filler", description="Safety Incident RCA Generator (Two-Phase)")
+
+# =============================================================================
+# TEAMS WEBHOOK CONFIGURATION
+# To get a webhook URL: In Teams, go to your channel > ... > Connectors > 
+# Incoming Webhook > Configure > Copy the webhook URL and paste it below.
+# =============================================================================
+TEAMS_WEBHOOK_URL = ""  # Paste your Teams channel webhook URL here
 
 # Setup paths
 BASE_DIR = Path(__file__).parent
@@ -182,6 +190,69 @@ $mail.Display()
         return JSONResponse({"error": f"Could not open Outlook: {str(e)}", "success": False})
 
 
+@app.post("/send-teams")
+async def send_teams(request: Request):
+    """Send incident notification to Teams channel via webhook."""
+    if not TEAMS_WEBHOOK_URL:
+        return JSONResponse({
+            "error": "Teams webhook not configured. Add your webhook URL to TEAMS_WEBHOOK_URL in main_v2.py",
+            "success": False
+        }, status_code=400)
+    
+    data = await request.json()
+    site_location = data.get("site_location", "Unknown")
+    assoc_name = data.get("assoc_name", "Unknown")
+    incident_datetime = data.get("incident_datetime", "Not specified")
+    reported_datetime = data.get("reported_datetime", "Not specified")
+    how_incident_occurred = data.get("how_incident_occurred", "No description provided")
+    
+    # Format datetimes for display
+    def format_dt(dt_str):
+        if not dt_str:
+            return "Not specified"
+        try:
+            dt = datetime.fromisoformat(dt_str)
+            return dt.strftime("%m/%d/%Y at %I:%M %p")
+        except:
+            return dt_str
+    
+    # Build Teams Adaptive Card message
+    teams_message = {
+        "@type": "MessageCard",
+        "@context": "http://schema.org/extensions",
+        "themeColor": "EA1100",
+        "summary": f"Safety Incident Report - {site_location}",
+        "sections": [{
+            "activityTitle": f"🚨 Safety Incident Report - {site_location}",
+            "activitySubtitle": f"Associate: {assoc_name}",
+            "facts": [
+                {"name": "📅 Date of Incident", "value": format_dt(incident_datetime)},
+                {"name": "🕐 Date/Time Reported", "value": format_dt(reported_datetime)},
+            ],
+            "text": f"**Associate's Account:**\n\n{how_incident_occurred}",
+            "markdown": True
+        }]
+    }
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                TEAMS_WEBHOOK_URL,
+                json=teams_message,
+                timeout=10.0
+            )
+            
+            if response.status_code == 200:
+                return JSONResponse({"success": True, "message": "Sent to Teams!"})
+            else:
+                return JSONResponse({
+                    "error": f"Teams returned status {response.status_code}",
+                    "success": False
+                })
+    except Exception as e:
+        return JSONResponse({"error": f"Failed to send to Teams: {str(e)}", "success": False})
+
+
 @app.get("/incidents")
 async def list_incidents():
     """List all saved incidents."""
@@ -293,6 +364,11 @@ async def save_phase1(
             "xlsx_filename": xlsx_filename,
             "site_location": site_location,
             "assoc_name": f"{assoc_first_name} {assoc_last_name}",
+            "incident_datetime": incident_datetime,
+            "reported_datetime": reported_datetime,
+            "incident_location": incident_location,
+            "incident_types": ", ".join(incident_types) if isinstance(incident_types, list) else incident_types,
+            "how_incident_occurred": how_incident_occurred,
         }
     )
 
@@ -603,4 +679,4 @@ async def download_file(filename: str):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="127.0.0.1", port=8000)

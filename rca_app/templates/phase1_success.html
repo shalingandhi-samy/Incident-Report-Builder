@@ -68,6 +68,34 @@
                 <p class="text-sm text-gray-500 mt-3">{{ xlsx_filename }}</p>
             </div>
             
+            <!-- Send to Teams Card -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <h3 class="font-bold text-gray-700 mb-4 flex items-center gap-2">
+                    <svg class="w-6 h-6 text-purple-600" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19.2 6.4h-2.4V4.8c0-1.32-1.08-2.4-2.4-2.4h-4.8c-1.32 0-2.4 1.08-2.4 2.4v1.6H4.8C3.48 6.4 2.4 7.48 2.4 8.8v9.6c0 1.32 1.08 2.4 2.4 2.4h14.4c1.32 0 2.4-1.08 2.4-2.4V8.8c0-1.32-1.08-2.4-2.4-2.4z"/>
+                    </svg>
+                    Send to Teams
+                </h3>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Message</label>
+                        <p class="text-xs text-gray-500 mb-2">Review and edit as needed. If any information is unknown or pending verification, please indicate "Unknown" or "TBD" in the relevant field.</p>
+                        <textarea id="teamsMessage" rows="8"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono"></textarea>
+                    </div>
+                    
+                    <button onclick="copyForTeams()" id="teamsBtn"
+                        class="w-full px-4 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                        Copy for Teams
+                    </button>
+                </div>
+                <p id="teamsStatus" class="text-sm text-gray-500 mt-2 text-center"></p>
+            </div>
+            
             <!-- STOP Box -->
             <div class="stop-box rounded-2xl p-8 text-white">
                 <div class="text-center">
@@ -76,26 +104,30 @@
                     <p class="text-xl font-medium mb-6">Get associate signature before continuing</p>
                 </div>
                 
-                <div class="flex justify-center gap-3 flex-wrap max-w-2xl mx-auto">
+                <div class="flex justify-center gap-3 flex-wrap max-w-3xl mx-auto">
+                    <div class="bg-white/20 rounded-xl p-4 text-center">
+                        <div class="text-2xl mb-1">💬</div>
+                        <div class="font-bold">1. Send Teams</div>
+                    </div>
                     <div class="bg-white/20 rounded-xl p-4 text-center">
                         <div class="text-2xl mb-1">🖨️</div>
-                        <div class="font-bold">1. Print</div>
+                        <div class="font-bold">2. Print 738 Form</div>
                     </div>
                     <div class="bg-white/20 rounded-xl p-4 text-center">
                         <div class="text-2xl mb-1">✍️</div>
-                        <div class="font-bold">2. Associate signs</div>
+                        <div class="font-bold">3. Associate signs</div>
                     </div>
                     <div class="bg-white/20 rounded-xl p-4 text-center">
                         <div class="text-2xl mb-1">✍️</div>
-                        <div class="font-bold">3. Manager signs</div>
+                        <div class="font-bold">4. Manager signs</div>
                     </div>
                     <div class="bg-white/20 rounded-xl p-4 text-center">
                         <div class="text-2xl mb-1">📁</div>
-                        <div class="font-bold">4. Turn in to AP</div>
+                        <div class="font-bold">5. Turn in 738 &<br>incident packet to AP</div>
                     </div>
                     <div class="bg-white/20 rounded-xl p-4 text-center">
                         <div class="text-2xl mb-1">↩️</div>
-                        <div class="font-bold">5. Return for RCA</div>
+                        <div class="font-bold">6. Return for RCA</div>
                     </div>
                 </div>
             </div>
@@ -131,5 +163,55 @@
             <p>Incident Report Builder • Built with 🐕 by Code Puppy</p>
         </div>
     </footer>
+    
+    <script>
+        // Format date with time for display
+        function formatDateTime(dtStr) {
+            if (!dtStr) return 'Unknown';
+            try {
+                const dt = new Date(dtStr);
+                return dt.toLocaleDateString('en-US') + ' at ' + dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            } catch {
+                return dtStr;
+            }
+        }
+        
+        // Pre-fill the message on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            const siteLocation = '{{ site_location }}' || 'Unknown';
+            const incidentDate = formatDateTime('{{ incident_datetime }}');
+            const reportedDate = formatDateTime('{{ reported_datetime }}');
+            const incidentLocation = '{{ incident_location }}' || 'Unknown';
+            const incidentTypes = '{{ incident_types }}' || 'Unknown';
+            const incidentSummary = `{{ how_incident_occurred | replace('\r\n', '\n') | replace('\r', '\n') | replace("'", "") | replace('"', '') }}` || 'Unknown';
+            
+            const message = `\u{1F6A8} SAFETY INCIDENT REPORT - ${siteLocation}\n\n` +
+                `\u{1F3F7} Incident Type: ${incidentTypes}\n` +
+                `\u{1F4C5} Date of Incident: ${incidentDate}\n` +
+                `\u{1F4CB} Date Reported: ${reportedDate}\n` +
+                `\u{1F4CD} Location: ${incidentLocation}\n\n` +
+                `\u{1F4DD} Incident Summary:\n${incidentSummary}`;
+            
+            document.getElementById('teamsMessage').value = message;
+        });
+        
+        // Copy the message from the textarea
+        function copyForTeams() {
+            const btn = document.getElementById('teamsBtn');
+            const status = document.getElementById('teamsStatus');
+            const message = document.getElementById('teamsMessage').value;
+            
+            navigator.clipboard.writeText(message).then(() => {
+                btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Copied!';
+                btn.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+                btn.classList.add('bg-green-600');
+                status.textContent = 'Paste into your Teams chat and send!';
+                status.className = 'text-sm text-green-600 mt-2 text-center font-medium';
+            }).catch(err => {
+                status.textContent = 'Could not copy: ' + err;
+                status.className = 'text-sm text-red-600 mt-2 text-center';
+            });
+        }
+    </script>
 </body>
 </html>
